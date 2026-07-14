@@ -129,8 +129,12 @@ static void handleImport() {
     battSchutzAktiv = doc["battSchutzAktiv"].as<int>() != 0;
   if (doc["betriebSek"].is<uint32_t>())
     betriebsSekGesamt = doc["betriebSek"].as<uint32_t>();
-  if (doc["automatik"].is<int>())
-    automatikAn = doc["automatik"].as<int>() != 0;
+  if (doc["automatik"].is<int>()) {
+    // Über automatik_setzen(), nicht direkt: beendet einen eventuell
+    // laufenden Urlaubsmodus, damit kein inkonsistenter Zustand entsteht
+    // (Urlaubsflag aktiv, aber Automatik per Import wieder an).
+    automatik_setzen(doc["automatik"].as<int>() != 0);
+  }
   if (doc["timer"].is<JsonArray>()) {
     JsonArray tage = doc["timer"].as<JsonArray>();
     for (int d = 0; d < 7 && d < (int)tage.size(); d++) {
@@ -263,6 +267,11 @@ static void handlePumpe() {
 // ── POST /api/pumpezeit ────────────────────────────────────────
 static void handlePumpeZeit() {
   if (!server.hasArg("minuten")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
+  // Bei aktiver Batteriesperre würde der Countdown ablaufen, ohne dass je
+  // ein Tropfen fliesst — daher gleich mit klarer Fehlermeldung ablehnen.
+  if (battKritisch && battSchutzAktiv) {
+    sendJson("{\"ok\":0,\"err\":\"Pumpe gesperrt: Batterie kritisch\"}"); return;
+  }
   int minuten = server.arg("minuten").toInt();
   if (minuten < 1) minuten = 1;
   pumpe_manuell_zeit((uint16_t)minuten);
@@ -275,7 +284,9 @@ static void handleUrlaubStart() {
   if (!server.hasArg("tage")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
   int tage = server.arg("tage").toInt();
   if (tage < 1) tage = 1;
-  urlaub_starten((uint16_t)tage);
+  if (!urlaub_starten((uint16_t)tage)) {
+    sendJson("{\"ok\":0,\"err\":\"Zeit nicht gesetzt\"}"); return;
+  }
   sendJson("{\"ok\":1}");
 }
 

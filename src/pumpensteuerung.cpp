@@ -83,7 +83,10 @@ void pumpe_loop(bool regenAktiv, bool wasserVorhanden) {
   if (!automatikAn || !zeitGesetzt) {
     pumpeTimerAn = false;
     pumpeManAus  = false;   // sauberer Neustart, falls Automatik wieder aktiviert wird
-    pumpe_schalten(false);   // Relais sofort AUS — nicht auf nächsten loop() warten
+    // Kein direktes pumpe_schalten(false) hier: den Pin setzt ausschließlich
+    // main.cpp (Schritt 7) über pumpe_schalten(pumpe_laeuft()) — sonst würde
+    // eine manuell eingeschaltete Pumpe hier kurz aus- und sofort wieder
+    // eingeschaltet (unnötiger Pin-Glitch, irreführend beim Lesen).
     return;
   }
   struct tm jetzt  = zeit_aktuell();

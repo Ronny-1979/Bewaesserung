@@ -48,7 +48,9 @@ void automatik_setzen(bool an);
 // Urlaubsmodus: Automatik für 'tage' Tage pausieren, danach automatisch
 // wieder aktivieren. urlaub_tick() muss regelmäßig aus der Hauptschleife
 // aufgerufen werden, um das automatische Ende zu erkennen.
-void urlaub_starten(uint16_t tage);
+// urlaub_starten liefert false, wenn die Zeit nicht gesetzt ist (Start
+// wird dann abgelehnt, da das Enddatum nicht berechenbar wäre).
+bool urlaub_starten(uint16_t tage);
 void urlaub_beenden();
 void urlaub_tick();
 

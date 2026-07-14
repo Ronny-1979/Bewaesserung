@@ -147,5 +147,8 @@ void loop() {
   // 13. Urlaubsmodus: prüfen ob automatisch beendet werden soll
   urlaub_tick();
 
+  // 14. Zeit-Basis nachziehen (millis-Überlauf-Schutz bei >49 Tagen Uptime)
+  zeit_tick();
+
   delay(100);
 }

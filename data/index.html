@@ -1047,8 +1047,13 @@ async function pumpeTasten(){
 async function pumpeZeitStarten(minuten){
   const fd=new FormData(); fd.append('minuten', minuten);
   try {
-    await fetch('/api/pumpezeit',{method:'POST',body:fd});
-    toast('✓ Gießt für '+minuten+' Minuten');
+    const r = await fetch('/api/pumpezeit',{method:'POST',body:fd});
+    const j = await r.json();
+    if (j.ok) {
+      toast('✓ Gießt für '+minuten+' Minuten');
+    } else {
+      toast('✗ '+(j.err || 'Fehler'), true);
+    }
     await statusLaden();
   } catch(e) { toast('✗ Keine Verbindung',true); }
 }
@@ -1076,8 +1081,13 @@ async function urlaubStarten(){
   const tage = parseInt(document.getElementById('urlaub-tage').value, 10) || 7;
   const fd=new FormData(); fd.append('tage', tage);
   try {
-    await fetch('/api/urlaubstart',{method:'POST',body:fd});
-    toast('✓ Urlaubsmodus gestartet für '+tage+' Tage');
+    const r = await fetch('/api/urlaubstart',{method:'POST',body:fd});
+    const j = await r.json();
+    if (j.ok) {
+      toast('✓ Urlaubsmodus gestartet für '+tage+' Tage');
+    } else {
+      toast('✗ '+(j.err || 'Fehler'), true);
+    }
     await statusLaden();
   } catch(e) { toast('✗ Keine Verbindung',true); }
 }

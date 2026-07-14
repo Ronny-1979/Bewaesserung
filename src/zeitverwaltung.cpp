@@ -33,6 +33,24 @@ void zeit_setzen_unix(uint32_t epoch) {
   zeitApproximiert = true;
 }
 
+// millis()-Überlauf-Schutz: Die Zeitberechnung (millis() - zeitBasisMillis)
+// ist nur korrekt, solange seit dem letzten Setzen der Basis weniger als
+// ~49,7 Tage (2^32 ms) vergangen sind. Ohne diese Funktion würde die Uhr
+// bei längerem Dauerbetrieb schlagartig ~49,7 Tage zurückspringen — und die
+// periodische Zeitsicherung würde die falsche Zeit sogar in den Flash
+// zementieren. Daher wird die Basis einmal täglich "nachgezogen": die volle
+// Sekundenzahl wandert in epochBasis, der Sub-Sekunden-Rest bleibt in
+// zeitBasisMillis erhalten, damit keine Millisekunden verloren gehen.
+void zeit_tick() {
+  if (!zeitGesetzt) return;
+  unsigned long verg = millis() - zeitBasisMillis;
+  if (verg >= 86400000UL) {   // einmal am Tag
+    unsigned long ganzeSek = verg / 1000;
+    epochBasis      += (time_t)ganzeSek;
+    zeitBasisMillis += ganzeSek * 1000UL;   // Rest-Millisekunden erhalten
+  }
+}
+
 struct tm zeit_aktuell() {
   if (!zeitGesetzt) { struct tm l = {0}; return l; }
   uint32_t  vergSek = (millis() - zeitBasisMillis) / 1000;

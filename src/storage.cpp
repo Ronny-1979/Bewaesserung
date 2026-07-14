@@ -110,15 +110,19 @@ void automatik_setzen(bool an) {
   }
 }
 
-void urlaub_starten(uint16_t tage) {
+// Ohne gesetzte Zeit wird der Start abgelehnt (return false): das Enddatum
+// wäre nicht berechenbar und der Modus würde nie automatisch enden.
+bool urlaub_starten(uint16_t tage) {
+  if (!zeitGesetzt) return false;
   if (tage < 1)  tage = 1;
   if (tage > 90) tage = 90;   // Sicherheitsnetz gegen Tippfehler
   automatikAn       = false;
   urlaubsModusAktiv = true;
-  urlaubsEndeUnix   = zeitGesetzt ? (zeit_als_unix() + (uint32_t)tage * 86400UL) : 0;
+  urlaubsEndeUnix   = zeit_als_unix() + (uint32_t)tage * 86400UL;
   speicher_automatik_speichern();
   speicher_urlaub_speichern();
   log_eintrag("Urlaubsmodus gestartet", zeit_als_unix());
+  return true;
 }
 
 void urlaub_beenden() {

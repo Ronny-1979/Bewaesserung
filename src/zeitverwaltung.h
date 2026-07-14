@@ -7,6 +7,7 @@ extern bool          zeitApproximiert;   // true = Zeit stammt aus Flash-Wiederh
 
 void      zeit_setzen(int tag, int mon, int jahr, int std, int min, int sek);
 void      zeit_setzen_unix(uint32_t epoch);   // Wiederherstellung nach Neustart (naeherungsweise)
+void      zeit_tick();                        // regelmäßig aus loop() aufrufen (millis-Überlauf-Schutz)
 struct tm zeit_aktuell();
 uint32_t  zeit_als_unix();
 String    zeit_als_string();
