@@ -8,16 +8,27 @@ Konfiguration.
 ## Features
 
 - Wochenprogramm mit bis zu 3 Timern pro Tag (inkl. Timer über Mitternacht)
-- Regensensor & Wasserstandssensor mit einstellbarem Pegel (HIGH/LOW-aktiv)
+- Regensensor & Wasserstandssensor mit einstellbarem Pegel (HIGH/LOW-aktiv),
+  jeweils einzeln per WebIF deaktivierbar (z.B. bei Defekt/nicht angeschlossen);
+  deaktivierter Sensor blinkt an der zugehörigen Status-LED langsam
 - Automatik EIN/AUS per physischem Taster oder WebIF
-- Manuelle Pumpensteuerung per Funk-Fernbedienung (QIACHIP RX480E-4)
+- Manuelle Pumpensteuerung per WebIF-Button oder Funk-Fernbedienung
+  (QIACHIP RX480E-4, interruptbasiert). Manuelles AUS überschreibt auch
+  einen gerade aktiven Timer zuverlässig und hebt sich automatisch wieder
+  auf, sobald das Zeitfenster endet
 - Separater Beleuchtungs-Kanal mit eigenem Taster
 - Batterie-Überwachung via Spannungsteiler am ADC
 - OLED-Display (SSD1306, 128×64): Uhrzeit, Batteriespannung, Automatik-Status
 - 4 Status-LEDs (Automatik, Wasser, Regen, Pumpe)
 - Web-Dashboard (SPIFFS, `data/index.html`) mit Live-Status, Timer-Editor,
   Log, Backup-Export/-Import
-- Betriebsstunden-Zähler, persistente Einstellungen via NVS (Preferences)
+- Betriebsstunden-Zähler (autosave alle 5 Min. während die Pumpe läuft),
+  persistente Einstellungen via NVS (Preferences)
+- Kein NTP/RTC — die Uhr läuft rein intern, wird aber alle 5 Minuten sowie
+  sofort nach manuellem Setzen in den Flash gesichert. Nach einem Neustart/
+  Stromausfall wird die letzte bekannte Zeit automatisch wiederhergestellt
+  (näherungsweise) — im WebIF erscheint dann ein Hinweis, die Zeit bei
+  Gelegenheit neu zu setzen
 
 ## Hardware
 
@@ -47,6 +58,31 @@ Konfiguration.
 | Batterie-ADC           | 34   |
 | OLED SDA               | 5    |
 | OLED SCL               | 17   |
+
+## REST-API (WebIF)
+
+| Endpunkt | Methode | Zweck |
+|---|---|---|
+| `/api/status` | GET | Live-Status (Sensoren, Pumpe, Licht, Zeit, Timer, ...) |
+| `/api/export` | GET | Komplette Konfiguration als JSON-Backup |
+| `/api/import` | POST | Backup wieder einspielen |
+| `/api/pegel` | POST | Aktiv-Pegel der Sensoren setzen |
+| `/api/sensoraktiv` | POST | Regen-/Wasserstandssensor aktivieren/deaktivieren |
+| `/api/pumpepol` | POST | Relais-Polarität der Pumpe setzen |
+| `/api/automatik` | POST | Wochenprogramm ein-/ausschalten |
+| `/api/zeit` | POST | Uhrzeit manuell setzen |
+| `/api/timer` | POST | Einzelnen Timer-Slot speichern |
+| `/api/pumpe` | POST | Pumpe manuell ein-/ausschalten |
+| `/api/licht` | POST | Beleuchtung ein-/ausschalten |
+| `/api/log` | GET | Ereignisverlauf (nur RAM, geht bei Neustart verloren) |
+
+## Bekannte Grenzen
+
+- Kein Login/Authentifizierung im WebIF — jeder im WLAN kann steuern
+- AP-Passwort ist der Standardwert `12345678`
+- Log-Verlauf ist reiner RAM-Ringpuffer, nicht dauerhaft gespeichert
+- Wiederhergestellte Zeit nach Neustart ist nur eine Näherung (Uhr stand
+  seit dem letzten Speichern still)
 
 ## Build & Flash
 

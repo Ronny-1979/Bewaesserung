@@ -18,8 +18,7 @@ void licht_init() {
   lt_letzterPegel   = digitalRead(PIN_LICHT_TASTER);
   lt_bestaetigt     = lt_letzterPegel;
   lt_aenderungsZeit = millis();
-  Serial.printf("Licht     : Relais=GPIO%d | Taster=GPIO%d\n",
-    PIN_LICHT, PIN_LICHT_TASTER);
+  // Hinweis: Pin-Info wird zentral einmal in main.cpp::setup() geloggt
 }
 
 void licht_schalten(bool an) {

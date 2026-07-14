@@ -67,7 +67,6 @@ void pumpe_loop(bool regenAktiv, bool wasserVorhanden) {
       // Phase 2: Nach Mitternacht am Folgetag (jetztMin < 00:30)
       // Wochentag ist bereits weitergeschaltet → Vortag-Timer prüfen
       int wtVortag    = (wt + 6) % 7;   // Vortag (z.B. Dienstag wenn jetzt Mittwoch)
-      int ausMinRest  = ausMin - 1440;  // Minuten nach Mitternacht
       for (int t2 = 0; t2 < TIMER_PRO_TAG; t2++) {
         TagTimer& tim2 = woche[wtVortag].timer[t2];
         if (!tim2.aktiv || !wasserVorhanden || regenAktiv) continue;
