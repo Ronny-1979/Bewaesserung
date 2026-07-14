@@ -453,7 +453,10 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
 <div class="seite" id="seite-zeit">
   <div class="card">
     <div class="card-title">🕐 Datum &amp; Uhrzeit</div>
-    <p class="hint">Kein NTP/Internet. Manuell einstellen — läuft intern weiter. Nach Stromausfall neu setzen.</p>
+    <p class="hint">Kein NTP/Internet. Die Uhr läuft intern weiter und wird alle 5 Minuten
+      gesichert — nach einem Stromausfall wird die zuletzt bekannte Zeit automatisch
+      wiederhergestellt (nur näherungsweise, siehe Hinweis unten). Für genaue Zeit
+      trotzdem kurz prüfen/neu setzen.</p>
     <div class="row2">
       <div class="gruppe"><label>Datum</label><input type="text" id="z-datum" placeholder="TT.MM.JJJJ"></div>
       <div class="gruppe"><label>Uhrzeit</label><input type="text" id="z-uhr" placeholder="HH:MM:SS"></div>
@@ -463,6 +466,9 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
     <hr>
     <div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);text-align:center">
       Aktuell: <span id="z-aktuell" style="color:var(--accent)">–</span>
+    </div>
+    <div id="z-approx-warn" style="display:none;margin-top:8px;font-size:.75rem;color:var(--orange);text-align:center">
+      ⚠ Aus Flash wiederhergestellt (näherungsweise) — bitte Zeit neu setzen
     </div>
   </div>
 </div>
@@ -524,6 +530,7 @@ const TAGE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 let status      = {};
 let aktiverTag  = new Date().getDay();
 let pumpeManAn  = false;
+let pumpeLaeuft = false;
 let lichtAn     = false;
 let automatikAn = true;
 let gpioGeladen = false;
@@ -563,10 +570,13 @@ async function statusLaden() {
 function renderDashboard() {
   document.getElementById('headerZeit').textContent = status.zeit || '–';
   document.getElementById('z-aktuell').textContent  = status.zeit || '–';
+  const zApprox = document.getElementById('z-approx-warn');
+  if (zApprox) zApprox.style.display = (status.zeitApprox === 1) ? 'block' : 'none';
 
   const regen  = status.regen  === 1;
   const wasser = status.wasser === 1;
   const laeuft = status.pumpe  === 1;
+  pumpeLaeuft  = laeuft;
   pumpeManAn   = status.pumpeMan  === 1;
   automatikAn  = status.automatik === 1;
   pegelRegenHigh  = status.pegelRegenHigh  === 1;
@@ -606,9 +616,9 @@ function renderDashboard() {
   if (bw) bw.innerHTML = pegelBadge(pegelWasserHigh);
 
   const bp = document.getElementById('btn-pumpe');
-  bp.className = 'pumpe-btn '+(pumpeManAn?'ein':'aus');
-  document.getElementById('pumpe-icon').textContent = pumpeManAn ? '⏹':'▶';
-  document.getElementById('pumpe-txt').textContent  = pumpeManAn ? 'Pumpe ausschalten':'Pumpe manuell einschalten';
+  bp.className = 'pumpe-btn '+(laeuft?'ein':'aus');
+  document.getElementById('pumpe-icon').textContent = laeuft ? '⏹':'▶';
+  document.getElementById('pumpe-txt').textContent  = laeuft ? 'Pumpe ausschalten':'Pumpe manuell einschalten';
   document.getElementById('v-betrieb').textContent  = status.betrieb || '0h 00min';
 
   // ── Batteriespannung ────────────────────────────────────────
@@ -907,7 +917,7 @@ async function alleTimerSpeichern(){
 
 // ── Pumpe ─────────────────────────────────────────────────────
 async function pumpeTasten(){
-  const fd=new FormData(); fd.append('an',pumpeManAn?'0':'1');
+  const fd=new FormData(); fd.append('an', pumpeLaeuft ? '0' : '1');
   await fetch('/api/pumpe',{method:'POST',body:fd}); await statusLaden();
 }
 

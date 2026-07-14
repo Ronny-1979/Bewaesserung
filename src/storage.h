@@ -28,6 +28,7 @@ void speicher_pumpe_pol_speichern();
 void speicher_timer_speichern();
 void speicher_betrieb_speichern();
 void speicher_automatik_speichern();
+void speicher_zeit_speichern();
 void speicher_alles_speichern();
 
 void   log_eintrag(const char* text, uint32_t ts);

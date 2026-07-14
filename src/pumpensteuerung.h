@@ -3,6 +3,7 @@
 
 extern bool pumpeTimerAn;
 extern bool pumpeManAn;
+extern bool pumpeManAus;   // Manuelles AUS überschreibt einen aktiven Timer
 
 void   pumpe_init();
 bool   pumpe_laeuft();

@@ -5,17 +5,30 @@
 
 bool pumpeTimerAn = false;
 bool pumpeManAn   = false;
+bool pumpeManAus  = false;
 
-static bool          letztesPumpeAn = false;
-static unsigned long letzterTick    = 0;
+static bool          letztesPumpeAn         = false;
+static unsigned long letzterTick            = 0;
+static unsigned long letzterBetriebAutosave = 0;
 
 void pumpe_init() {
-  letzterTick    = millis();
-  letztesPumpeAn = false;
+  letzterTick            = millis();
+  letzterBetriebAutosave = millis();
+  letztesPumpeAn         = false;
 }
 
-bool pumpe_laeuft()       { return pumpeTimerAn || pumpeManAn; }
-void pumpe_manuell(bool an) { pumpeManAn = an; }
+// Manuelles AUS (WebIF-Button oder Funk-Taste B) überschreibt auch einen
+// gerade aktiven Timer — sonst könnte man die Pumpe während eines laufenden
+// Bewässerungsfensters nicht wirklich abschalten. Das manuelle EIN hebt die
+// Sperre wieder auf. Die Sperre selbst löst sich automatisch, sobald das
+// Zeitfenster regulär endet (siehe pumpe_loop) — zukünftige Timer laufen
+// danach ganz normal wieder an.
+bool pumpe_laeuft() { return !pumpeManAus && (pumpeTimerAn || pumpeManAn); }
+
+void pumpe_manuell(bool an) {
+  pumpeManAn  = an;
+  pumpeManAus = !an;
+}
 
 void pumpe_schalten(bool an) {
   // Active LOW (Optokoppler): pumpeAktivHigh=false → LOW=EIN
@@ -26,6 +39,7 @@ void pumpe_schalten(bool an) {
 void pumpe_loop(bool regenAktiv, bool wasserVorhanden) {
   if (!automatikAn || !zeitGesetzt) {
     pumpeTimerAn = false;
+    pumpeManAus  = false;   // sauberer Neustart, falls Automatik wieder aktiviert wird
     pumpe_schalten(false);   // Relais sofort AUS — nicht auf nächsten loop() warten
     return;
   }
@@ -64,6 +78,11 @@ void pumpe_loop(bool regenAktiv, bool wasserVorhanden) {
       if (soll) break;
     }
   }
+
+  // Sobald kein Zeitfenster mehr aktiv ist, löst sich eine manuelle AUS-Sperre
+  // automatisch wieder auf — der nächste planmäßige Timer ist davon unberührt.
+  if (!soll) pumpeManAus = false;
+
   pumpeTimerAn = soll;
 }
 
@@ -78,9 +97,17 @@ void pumpe_betrieb_ticker() {
     snprintf(buf, sizeof(buf), "Pumpe AUS (%s)", pumpe_betriebszeit_string().c_str());
     log_eintrag(buf, zeit_als_unix());
     speicher_betrieb_speichern();
+    letzterBetriebAutosave = jetzt;
   }
   if (laeuft) betriebsSekGesamt++;
   letztesPumpeAn = laeuft;
+
+  // Autosave alle 5 Minuten während die Pumpe durchläuft — sonst geht bei
+  // einem Stromausfall mitten im Lauf die bis dahin gezählte Zeit verloren.
+  if (laeuft && (jetzt - letzterBetriebAutosave) >= 300000UL) {
+    letzterBetriebAutosave = jetzt;
+    speicher_betrieb_speichern();
+  }
 }
 
 String pumpe_betriebszeit_string() {

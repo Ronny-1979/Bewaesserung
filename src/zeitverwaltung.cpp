@@ -1,9 +1,10 @@
 #include "zeitverwaltung.h"
 
-bool          zeitGesetzt     = false;
-struct tm     manuelleZeit    = {0};
-unsigned long zeitBasisMillis = 0;
-static time_t epochBasis      = 0;   // einmal berechnet, gecacht
+bool          zeitGesetzt      = false;
+bool          zeitApproximiert = false;
+struct tm     manuelleZeit     = {0};
+unsigned long zeitBasisMillis  = 0;
+static time_t epochBasis       = 0;   // einmal berechnet, gecacht
 
 void zeit_setzen(int tag, int mon, int jahr, int std, int min, int sek) {
   manuelleZeit          = {0};
@@ -14,9 +15,22 @@ void zeit_setzen(int tag, int mon, int jahr, int std, int min, int sek) {
   manuelleZeit.tm_min   = min;
   manuelleZeit.tm_sec   = sek;
   manuelleZeit.tm_isdst = -1;
-  epochBasis      = mktime(&manuelleZeit);   // einmal berechnen + cachen
-  zeitBasisMillis = millis();
-  zeitGesetzt     = true;
+  epochBasis       = mktime(&manuelleZeit);   // einmal berechnen + cachen
+  zeitBasisMillis  = millis();
+  zeitGesetzt      = true;
+  zeitApproximiert = false;   // vom Nutzer bewusst gesetzt → verlässlich
+}
+
+// Wird beim Boot verwendet, um die zuletzt bekannte Zeit aus dem Flash
+// wiederherzustellen. Das ist nur eine Annäherung (die Zeit stand seit dem
+// letzten Speichern still), aber besser als gar keine Zeit — die
+// Wochenprogramm-Automatik kann so sofort weiterlaufen statt komplett zu
+// pausieren, bis jemand die Uhr manuell neu stellt.
+void zeit_setzen_unix(uint32_t epoch) {
+  epochBasis       = (time_t)epoch;
+  zeitBasisMillis  = millis();
+  zeitGesetzt      = true;
+  zeitApproximiert = true;
 }
 
 struct tm zeit_aktuell() {

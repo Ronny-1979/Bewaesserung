@@ -1,5 +1,6 @@
 #include "led_steuerung.h"
 #include "config.h"
+#include "storage.h"
 
 void led_init() {
   pinMode(PIN_LED_AUTOMATIK, OUTPUT);
@@ -20,8 +21,16 @@ void led_init() {
 
 void led_update(bool automatikAn, bool wasserVorhanden,
                 bool regenAktiv,  bool pumpeLaeuft) {
-  digitalWrite(PIN_LED_AUTOMATIK, automatikAn     ? HIGH : LOW);
-  digitalWrite(PIN_LED_WASSER,    wasserVorhanden ? HIGH : LOW);
-  digitalWrite(PIN_LED_REGEN,     regenAktiv      ? HIGH : LOW);
-  digitalWrite(PIN_LED_PUMPE,     pumpeLaeuft     ? HIGH : LOW);
+  digitalWrite(PIN_LED_AUTOMATIK, automatikAn ? HIGH : LOW);
+
+  // Regen-/Wasser-LED: normaler Zustand, aber langsames Blinken (1Hz) wenn
+  // der jeweilige Sensor deaktiviert ist — sonst ist am Gerät selbst (ohne
+  // WebIF) nicht erkennbar, dass "kein Regen"/"Wasser voll" nur simuliert ist.
+  bool blinkPhase = (millis() / 500) % 2 == 0;
+  digitalWrite(PIN_LED_REGEN,
+    sensorRegenAktiv  ? (regenAktiv      ? HIGH : LOW) : (blinkPhase ? HIGH : LOW));
+  digitalWrite(PIN_LED_WASSER,
+    sensorWasserAktiv ? (wasserVorhanden ? HIGH : LOW) : (blinkPhase ? HIGH : LOW));
+
+  digitalWrite(PIN_LED_PUMPE, pumpeLaeuft ? HIGH : LOW);
 }

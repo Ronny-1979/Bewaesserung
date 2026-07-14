@@ -16,7 +16,9 @@ bool  regenAktiv      = false;
 bool  wasserVorhanden = false;
 float battSpannung    = 0.0f;
 
-static unsigned long letzteOledUpdate = 0;
+static unsigned long letzteOledUpdate  = 0;
+static unsigned long letzteZeitSicherung = 0;
+#define ZEIT_AUTOSAVE_MS (5UL * 60UL * 1000UL)   // alle 5 Minuten
 
 void setup() {
   Serial.begin(115200);
@@ -71,6 +73,12 @@ void setup() {
   Serial.printf("LEDs      : Auto=GPIO%d | Wasser=GPIO%d | Regen=GPIO%d | Pumpe=GPIO%d\n",
     PIN_LED_AUTOMATIK, PIN_LED_WASSER, PIN_LED_REGEN, PIN_LED_PUMPE);
   Serial.printf("Automatik : %s\n", automatikAn ? "EIN" : "AUS");
+  if (zeitGesetzt) {
+    Serial.printf("Zeit      : %s %s\n", zeit_als_string().c_str(),
+      zeitApproximiert ? "(aus Flash wiederhergestellt, naeherungsweise)" : "(gesetzt)");
+  } else {
+    Serial.println("Zeit      : nicht gesetzt");
+  }
 
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASSWORD);
@@ -78,7 +86,7 @@ void setup() {
     AP_SSID, AP_PASSWORD, AP_IP_STR);
 
   webserver_init();
-  log_eintrag("System gestartet", 0);
+  log_eintrag("System gestartet", zeit_als_unix());
   Serial.println("Bereit.\n");
 }
 
@@ -125,6 +133,12 @@ void loop() {
 
   // 11. Webserver
   webserver_loop();
+
+  // 12. Zeit alle 5 Minuten sichern (Absicherung gegen Stromausfall)
+  if (jetzt - letzteZeitSicherung >= ZEIT_AUTOSAVE_MS) {
+    letzteZeitSicherung = jetzt;
+    speicher_zeit_speichern();
+  }
 
   delay(100);
 }

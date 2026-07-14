@@ -39,10 +39,12 @@ static void handleStatus() {
 
   String json = "{";
   json += "\"zeit\":\""          + zeit_als_string()            + "\",";
+  json += "\"zeitApprox\":"      + String(zeitApproximiert ?1:0) + ",";
   json += "\"regen\":"           + String(regenAktiv      ?1:0) + ",";
   json += "\"wasser\":"          + String(wasserVorhanden  ?1:0) + ",";
   json += "\"pumpe\":"           + String(pumpe_laeuft()   ?1:0) + ",";
   json += "\"pumpeMan\":"        + String(pumpeManAn       ?1:0) + ",";
+  json += "\"pumpeManAus\":"     + String(pumpeManAus      ?1:0) + ",";
   json += "\"automatik\":"       + String(automatikAn      ?1:0) + ",";
   json += "\"licht\":"           + String(lichtAn          ?1:0) + ",";
   json += "\"betrieb\":\""       + pumpe_betriebszeit_string()  + "\",";
@@ -69,7 +71,7 @@ static void handleStatus() {
 
 // ── GET /api/export ───────────────────────────────────────────
 static void handleExport() {
-  String json = "{\"version\":4,";
+  String json = "{\"version\":5,";
   json += "\"automatik\":"      + String(automatikAn    ?1:0) + ",";
   json += "\"betriebSek\":"     + String(betriebsSekGesamt)   + ",";
   json += "\"pegelRegenHigh\":" + String(pegelRegenHigh ?1:0) + ",";
@@ -205,13 +207,15 @@ static void handleZeit() {
   zeit_setzen(server.arg("t").toInt(), server.arg("m").toInt(),
               server.arg("j").toInt(), server.arg("h").toInt(),
               server.arg("mi").toInt(), server.arg("s").toInt());
+  speicher_zeit_speichern();
   log_eintrag("Zeit gesetzt", zeit_als_unix());
   sendJson("{\"ok\":1}");
 }
 
 // ── POST /api/timer ───────────────────────────────────────────
 static void handleTimer() {
-  if (!server.hasArg("d")||!server.hasArg("t")) {
+  if (!server.hasArg("d")||!server.hasArg("t")||
+      !server.hasArg("h")||!server.hasArg("m")||!server.hasArg("dur")) {
     sendJson("{\"ok\":0,\"err\":\"Ungueltige Parameter\"}"); return;
   }
   int d=server.arg("d").toInt(), t=server.arg("t").toInt();

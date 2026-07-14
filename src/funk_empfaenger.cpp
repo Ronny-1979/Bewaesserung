@@ -4,30 +4,40 @@
 
 #define FUNK_DEBOUNCE_MS 80
 
-struct FunkKanal { int pin; bool letzterPegel; unsigned long sperrBis; };
-static FunkKanal kanalA = { PIN_FUNK_A, LOW, 0 };
-static FunkKanal kanalB = { PIN_FUNK_B, LOW, 0 };
+// Die Hauptschleife läuft nur mit ca. 10Hz (delay(100) in main.cpp). Ein
+// kurzer RF-Impuls des RX480E-4 könnte dabei zwischen zwei loop()-Durchläufen
+// verlorengehen. Daher fangen wir die steigende Flanke per Hardware-Interrupt
+// ab (verpasst nichts) und werten sie entprellt im normalen loop() aus. Die
+// ISR selbst bleibt bewusst minimal (nur ein volatile Flag setzen).
+static volatile bool funkAFlag = false;
+static volatile bool funkBFlag = false;
+static unsigned long sperrBisA = 0;
+static unsigned long sperrBisB = 0;
+
+void IRAM_ATTR funkA_isr() { funkAFlag = true; }
+void IRAM_ATTR funkB_isr() { funkBFlag = true; }
 
 void funk_init() {
   pinMode(PIN_FUNK_A, INPUT_PULLDOWN);
   pinMode(PIN_FUNK_B, INPUT_PULLDOWN);
-  kanalA.letzterPegel = digitalRead(PIN_FUNK_A);
-  kanalB.letzterPegel = digitalRead(PIN_FUNK_B);
-  kanalA.sperrBis = kanalB.sperrBis = 0;
+  attachInterrupt(digitalPinToInterrupt(PIN_FUNK_A), funkA_isr, RISING);
+  attachInterrupt(digitalPinToInterrupt(PIN_FUNK_B), funkB_isr, RISING);
+  sperrBisA = sperrBisB = 0;
 }
 
-static bool steigende_flanke(FunkKanal& k) {
-  bool aktuell = digitalRead(k.pin);
-  if ((millis() - k.sperrBis) < (unsigned long)FUNK_DEBOUNCE_MS) {
-    k.letzterPegel = aktuell; return false;
-  }
-  if (aktuell == HIGH && k.letzterPegel == LOW) {
-    k.letzterPegel = HIGH; k.sperrBis = millis(); return true;
-  }
-  k.letzterPegel = aktuell; return false;
+// Prüft ob ein Flag gesetzt ist und wendet die Zeit-Entprellung an.
+// Mehrfaches Prellen vor der nächsten Auswertung führt nur zu einem Event,
+// da das Flag ein einzelnes bool ist (kein Zähler).
+static bool ausgeloest(volatile bool& flag, unsigned long& sperrBis) {
+  if (!flag) return false;
+  flag = false;
+  unsigned long jetzt = millis();
+  if ((jetzt - sperrBis) < (unsigned long)FUNK_DEBOUNCE_MS) return false;
+  sperrBis = jetzt;
+  return true;
 }
 
 void funk_loop() {
-  if (steigende_flanke(kanalA)) pumpe_manuell(true);
-  if (steigende_flanke(kanalB)) pumpe_manuell(false);
+  if (ausgeloest(funkAFlag, sperrBisA)) pumpe_manuell(true);
+  if (ausgeloest(funkBFlag, sperrBisB)) pumpe_manuell(false);
 }

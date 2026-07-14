@@ -1,5 +1,6 @@
 #include "storage.h"
 #include <Preferences.h>
+#include "zeitverwaltung.h"
 
 static Preferences prefs;
 
@@ -38,6 +39,15 @@ void speicher_init() {
       woche[d].timer[t].dauerMin =  v        & 0x3FF;
     }
   }
+
+  // Zuletzt bekannte Zeit wiederherstellen (nur Näherung, siehe zeit_setzen_unix).
+  // So läuft die Wochenprogramm-Automatik nach einem Reboot/Stromausfall sofort
+  // weiter, statt komplett zu pausieren bis die Uhr manuell neu gesetzt wird.
+  uint32_t letzteZeit = prefs.getUInt("zEp", 0);
+  if (letzteZeit > 0) {
+    zeit_setzen_unix(letzteZeit);
+    log_eintrag("Zeit aus Flash wiederhergestellt (naeherungsweise)", letzteZeit);
+  }
 }
 
 void speicher_pegel_speichern() {
@@ -71,6 +81,13 @@ void speicher_timer_speichern() {
 
 void speicher_betrieb_speichern()   { prefs.putUInt("bSek", betriebsSekGesamt); }
 void speicher_automatik_speichern() { prefs.putBool("aut",  automatikAn); }
+
+// Speichert die aktuelle Zeit als "letzten bekannten Stand" in den Flash —
+// wird periodisch aus main.cpp aufgerufen sowie sofort nach jedem manuellen
+// Setzen der Uhr über's WebIF (siehe handleZeit in webserver_routes.cpp).
+void speicher_zeit_speichern() {
+  if (zeitGesetzt) prefs.putUInt("zEp", zeit_als_unix());
+}
 
 void speicher_alles_speichern() {
   speicher_pegel_speichern();
