@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Bewässerungssteuerung – Firmware flashen</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="module" src="https://cdn.jsdelivr.net/npm/esp-web-tools@10.3.0/dist/web/install-button.js?module"></script>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 640px;
+    margin: 3rem auto;
+    padding: 0 1rem;
+    line-height: 1.5;
+  }
+  esp-web-install-button { display: block; margin: 1.5rem 0; }
+  .hinweis { color: #555; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+  <h1>Bewässerungssteuerung – Firmware flashen</h1>
+  <p>ESP32 per USB-Kabel anschließen, dann auf „Installieren“ klicken.</p>
+
+  <esp-web-install-button manifest="manifest.json">
+    <button slot="activate">Installieren</button>
+  </esp-web-install-button>
+
+  <p class="hinweis">
+    Funktioniert nur in Chrome oder Edge (Web Serial API) — Firefox und
+    Safari werden nicht unterstützt. Der Flash-Vorgang schreibt Bootloader,
+    Partitionstabelle, Firmware und das Web-Dashboard (SPIFFS); gespeicherte
+    Einstellungen (NVS) bleiben dabei erhalten, außer du wählst im
+    Installer-Dialog ausdrücklich eine komplette Löschung.
+  </p>
+</body>
+</html>
