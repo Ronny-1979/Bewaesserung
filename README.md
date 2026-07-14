@@ -29,6 +29,16 @@ Konfiguration.
   Stromausfall wird die letzte bekannte Zeit automatisch wiederhergestellt
   (näherungsweise) — im WebIF erscheint dann ein Hinweis, die Zeit bei
   Gelegenheit neu zu setzen
+- Regensensor mit 15 Minuten Nachlaufzeit: ein kurzer Schauer unterbricht
+  die Bewässerung nicht sofort wieder, sobald es kurz trocken wird
+- Batterie-Schutz: Pumpe wird bei kritisch niedriger Spannung komplett
+  gesperrt (auch manuell/Funk), um Tiefentladung der Batterie zu vermeiden
+- Zeitgesteuerte manuelle Bewässerung ("X Minuten gießen"), unabhängig vom
+  Wochenplan, schaltet sich nach Ablauf automatisch wieder ab
+- Urlaubsmodus: pausiert die Automatik für eine feste Anzahl Tage und
+  aktiviert sie danach automatisch wieder
+- Dashboard zeigt eine Vorschau der nächsten geplanten Bewässerung
+  (Wochentag, Uhrzeit, verbleibende Zeit)
 
 ## Hardware
 
@@ -73,6 +83,9 @@ Konfiguration.
 | `/api/zeit` | POST | Uhrzeit manuell setzen |
 | `/api/timer` | POST | Einzelnen Timer-Slot speichern |
 | `/api/pumpe` | POST | Pumpe manuell ein-/ausschalten |
+| `/api/pumpezeit` | POST | Pumpe für X Minuten starten (schaltet automatisch ab) |
+| `/api/urlaubstart` | POST | Urlaubsmodus starten (Parameter: Tage) |
+| `/api/urlaubende` | POST | Urlaubsmodus manuell beenden |
 | `/api/licht` | POST | Beleuchtung ein-/ausschalten |
 | `/api/log` | GET | Ereignisverlauf (nur RAM, geht bei Neustart verloren) |
 
@@ -83,6 +96,9 @@ Konfiguration.
 - Log-Verlauf ist reiner RAM-Ringpuffer, nicht dauerhaft gespeichert
 - Wiederhergestellte Zeit nach Neustart ist nur eine Näherung (Uhr stand
   seit dem letzten Speichern still)
+- Bewusst kein Sicherheits-Timeout für manuell (nicht zeitgesteuert)
+  eingeschaltete Pumpe/Beleuchtung — läuft unbegrenzt, bis manuell wieder
+  ausgeschaltet (für zeitlich begrenztes Gießen: `/api/pumpezeit` nutzen)
 
 ## Build & Flash
 
@@ -103,13 +119,15 @@ das Web-Dashboard erreichbar.
 src/
   main.cpp              Setup & Loop
   config.h              Pinbelegung, Defaults, Datenstrukturen
-  storage.*              NVS-Persistenz, Log
+  entprellung.h          gemeinsame Entprellungs-Hilfsfunktion (Taster)
+  storage.*              NVS-Persistenz, Log, Urlaubsmodus
   zeitverwaltung.*        manuelle Zeitverwaltung (kein NTP, kein RTC)
-  sensor.*                Regen-/Wasserstandssensor
+  sensor.*                Regen-/Wasserstandssensor (inkl. Regen-Nachlaufzeit)
   taster.*                Automatik-Taster (entprellt)
-  funk_empfaenger.*        RX480E-4 Funk-Fernbedienung
+  funk_empfaenger.*        RX480E-4 Funk-Fernbedienung (interruptbasiert)
   led_steuerung.*          Status-LEDs
-  pumpensteuerung.*        Timer-Logik & Relaissteuerung Pumpe
+  pumpensteuerung.*        Timer-Logik, Relaissteuerung, Batteriesperre,
+                           zeitgesteuerte manuelle Bewässerung
   licht_steuerung.*        Beleuchtungskanal & Taster
   webserver_routes.*      REST-API + Webserver
   oled_anzeige.*           OLED-Anzeige

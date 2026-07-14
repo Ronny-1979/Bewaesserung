@@ -205,6 +205,29 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
     <div class="auto-toggle" id="auto-toggle"></div>
   </button>
 
+  <div class="card" id="card-urlaub">
+    <div class="card-title">🏖️ Urlaubsmodus</div>
+    <div id="urlaub-inaktiv">
+      <p class="hint">Pausiert die Automatik für eine feste Anzahl Tage und
+        aktiviert sie danach automatisch wieder — ideal, wenn niemand da ist,
+        um selbst dran zu denken.</p>
+      <div class="row2">
+        <div class="gruppe"><label>Tage</label><input type="number" id="urlaub-tage" min="1" max="90" value="7"></div>
+      </div>
+      <button class="btn btn-ok btn-block" onclick="urlaubStarten()">🏖️ Urlaubsmodus starten</button>
+    </div>
+    <div id="urlaub-aktiv" style="display:none">
+      <p class="hint">Urlaubsmodus aktiv bis <strong id="urlaub-datum" style="color:var(--accent)">–</strong>.
+        Automatik ist bis dahin pausiert und wird danach automatisch wieder aktiviert.</p>
+      <button class="btn btn-ghost btn-block" onclick="urlaubBeenden()">Jetzt beenden</button>
+    </div>
+  </div>
+
+  <div class="card" id="card-naechste">
+    <div class="card-title">⏭ Nächste Bewässerung</div>
+    <div id="naechste-bewaesserung" style="font-family:var(--mono);font-size:.95rem;color:var(--accent)">–</div>
+  </div>
+
   <div class="led-leiste">
     <div class="led-kachel" id="led-automatik"><div class="led-bulb"></div><div class="led-label">Auto&shy;matik</div></div>
     <div class="led-kachel" id="led-wasser"><div class="led-bulb"></div><div class="led-label">Wasser&shy;fass</div></div>
@@ -250,6 +273,9 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
       </div>
     </div>
   </div>
+  <div id="batt-sperre-hinweis" style="display:none;background:#6e1a1a22;border:1px solid var(--red);border-radius:var(--r);padding:10px 12px;font-size:.78rem;color:var(--red);margin-bottom:12px">
+    ⚠ Pumpe gesperrt — Batterie zu schwach, um die Batterie zu schützen
+  </div>
 
   <div class="kacheln">
     <div class="kachel full" id="k-licht">
@@ -265,6 +291,25 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
   <button class="pumpe-btn" id="btn-pumpe" onclick="pumpeTasten()">
     <span id="pumpe-icon">▶</span><span id="pumpe-txt">Pumpe manuell einschalten</span>
   </button>
+
+  <div class="card" id="card-pumpezeit">
+    <div class="card-title">⏲ Zeitgesteuert gießen</div>
+    <div id="pumpezeit-inaktiv">
+      <p class="hint">Startet die Pumpe für eine feste Dauer, unabhängig vom
+        Wochenplan — schaltet danach automatisch wieder ab.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="pegel-btn" onclick="pumpeZeitStarten(5)">5 Min</button>
+        <button class="pegel-btn" onclick="pumpeZeitStarten(10)">10 Min</button>
+        <button class="pegel-btn" onclick="pumpeZeitStarten(15)">15 Min</button>
+        <button class="pegel-btn" onclick="pumpeZeitStarten(30)">30 Min</button>
+      </div>
+    </div>
+    <div id="pumpezeit-aktiv" style="display:none">
+      <p class="hint">Zeitgesteuerte Bewässerung läuft noch
+        <strong id="pumpezeit-rest" style="color:var(--accent)">–</strong>.</p>
+      <button class="btn btn-ghost btn-block" onclick="pumpeTasten()">Jetzt abbrechen</button>
+    </div>
+  </div>
 
   <div class="card">
     <div class="card-title">⏱ Betriebsstunden gesamt</div>
@@ -616,10 +661,18 @@ function renderDashboard() {
   if (bw) bw.innerHTML = pegelBadge(pegelWasserHigh);
 
   const bp = document.getElementById('btn-pumpe');
+  const battGesperrt = status.battKritisch === 1;
   bp.className = 'pumpe-btn '+(laeuft?'ein':'aus');
+  bp.disabled = battGesperrt;
+  bp.style.opacity = battGesperrt ? '.5' : '1';
   document.getElementById('pumpe-icon').textContent = laeuft ? '⏹':'▶';
-  document.getElementById('pumpe-txt').textContent  = laeuft ? 'Pumpe ausschalten':'Pumpe manuell einschalten';
+  document.getElementById('pumpe-txt').textContent  = battGesperrt
+    ? 'Gesperrt (Batterie kritisch)'
+    : (laeuft ? 'Pumpe ausschalten':'Pumpe manuell einschalten');
   document.getElementById('v-betrieb').textContent  = status.betrieb || '0h 00min';
+
+  const battHinweis = document.getElementById('batt-sperre-hinweis');
+  if (battHinweis) battHinweis.style.display = battGesperrt ? 'block' : 'none';
 
   // ── Batteriespannung ────────────────────────────────────────
   const batt = typeof status.battV === 'number' ? status.battV : 0;
@@ -643,6 +696,9 @@ function renderDashboard() {
   renderPegelUI();
   renderPumpePolUI();
   renderSensorAktivUI();
+  renderPumpeZeitUI();
+  renderUrlaubUI();
+  renderNaechsteBewaesserung();
 }
 
 function pegelBadge(high) {
@@ -919,6 +975,108 @@ async function alleTimerSpeichern(){
 async function pumpeTasten(){
   const fd=new FormData(); fd.append('an', pumpeLaeuft ? '0' : '1');
   await fetch('/api/pumpe',{method:'POST',body:fd}); await statusLaden();
+}
+
+// ── Zeitgesteuert gießen ────────────────────────────────────────
+async function pumpeZeitStarten(minuten){
+  const fd=new FormData(); fd.append('minuten', minuten);
+  try {
+    await fetch('/api/pumpezeit',{method:'POST',body:fd});
+    toast('✓ Gießt für '+minuten+' Minuten');
+    await statusLaden();
+  } catch(e) { toast('✗ Keine Verbindung',true); }
+}
+
+function restZeitString(sek){
+  if (sek <= 0) return '0 Min';
+  const m = Math.floor(sek/60), s = sek%60;
+  return m>0 ? (m+' Min '+s+' Sek') : (s+' Sek');
+}
+
+function renderPumpeZeitUI(){
+  const aktivBox = document.getElementById('pumpezeit-aktiv');
+  const inaktivBox = document.getElementById('pumpezeit-inaktiv');
+  if (!aktivBox || !inaktivBox) return;
+  const laeuftZeit = status.pumpeManZeitAktiv === 1;
+  aktivBox.style.display   = laeuftZeit ? 'block' : 'none';
+  inaktivBox.style.display = laeuftZeit ? 'none'  : 'block';
+  if (laeuftZeit) {
+    document.getElementById('pumpezeit-rest').textContent = restZeitString(status.pumpeManRestSek || 0);
+  }
+}
+
+// ── Urlaubsmodus ────────────────────────────────────────────────
+async function urlaubStarten(){
+  const tage = parseInt(document.getElementById('urlaub-tage').value, 10) || 7;
+  const fd=new FormData(); fd.append('tage', tage);
+  try {
+    await fetch('/api/urlaubstart',{method:'POST',body:fd});
+    toast('✓ Urlaubsmodus gestartet für '+tage+' Tage');
+    await statusLaden();
+  } catch(e) { toast('✗ Keine Verbindung',true); }
+}
+
+async function urlaubBeenden(){
+  try {
+    await fetch('/api/urlaubende',{method:'POST'});
+    toast('✓ Urlaubsmodus beendet');
+    await statusLaden();
+  } catch(e) { toast('✗ Keine Verbindung',true); }
+}
+
+function renderUrlaubUI(){
+  const aktivBox = document.getElementById('urlaub-aktiv');
+  const inaktivBox = document.getElementById('urlaub-inaktiv');
+  if (!aktivBox || !inaktivBox) return;
+  const aktiv = status.urlaubAktiv === 1;
+  aktivBox.style.display   = aktiv ? 'block' : 'none';
+  inaktivBox.style.display = aktiv ? 'none'  : 'block';
+  if (aktiv) document.getElementById('urlaub-datum').textContent = status.urlaubEndeDatum || '–';
+}
+
+// ── Nächste Bewässerung ─────────────────────────────────────────
+function naechsteBewaesserung(){
+  if (!timerDaten || status.zeit === 'nicht gesetzt' || !status.zeit) return null;
+  const teile = status.zeit.split(' ');
+  if (teile.length < 2) return null;
+  const [h, m] = teile[1].split(':').map(Number);
+  const wt = typeof status.wochentag === 'number' ? status.wochentag : new Date().getDay();
+  const jetztMin = h*60 + m;
+
+  let bester = null;
+  for (let d=0; d<7; d++) {
+    for (let t=0; t<3; t++) {
+      const tm = timerDaten[d] && timerDaten[d][t];
+      if (!tm || tm.a !== 1) continue;
+      const startMin = tm.h*60 + tm.m;
+      let diffTage = (d - wt + 7) % 7;
+      let minutenBis = diffTage*1440 + startMin - jetztMin;
+      if (minutenBis < 0) minutenBis += 7*1440;
+      if (!bester || minutenBis < bester.minutenBis) {
+        bester = { d, h:tm.h, m:tm.m, dauer:tm.d, minutenBis };
+      }
+    }
+  }
+  return bester;
+}
+
+function renderNaechsteBewaesserung(){
+  const el = document.getElementById('naechste-bewaesserung');
+  if (!el) return;
+  const b = naechsteBewaesserung();
+  if (!b) { el.textContent = 'Kein aktiver Timer im Wochenplan'; return; }
+  const tagName = TAGE[b.d];
+  const uhrzeit = pad(b.h)+':'+pad(b.m);
+  let relTxt;
+  if (b.minutenBis <= 0)      relTxt = 'jetzt';
+  else if (b.minutenBis < 60) relTxt = 'in '+b.minutenBis+' Min';
+  else {
+    const tage = Math.floor(b.minutenBis/1440);
+    const std  = Math.floor((b.minutenBis%1440)/60);
+    const min  = b.minutenBis%60;
+    relTxt = 'in ' + (tage>0 ? tage+' Tg ' : '') + std+'Std '+min+'Min';
+  }
+  el.textContent = tagName+', '+uhrzeit+' Uhr — '+relTxt+' (Dauer '+b.dauer+' Min)';
 }
 
 // ── Licht ────────────────────────────────────────────────────

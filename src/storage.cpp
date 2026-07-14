@@ -12,6 +12,9 @@ bool sensorWasserAktiv = DEFAULT_SENSOR_WASSER_AKTIV;
 bool automatikAn       = true;
 uint32_t betriebsSekGesamt = 0;
 
+bool     urlaubsModusAktiv = false;
+uint32_t urlaubsEndeUnix   = 0;
+
 Tagprogramm woche[7];
 
 LogEintrag logBuf[LOG_MAX];
@@ -27,6 +30,8 @@ void speicher_init() {
   sensorWasserAktiv = prefs.getBool("swA", DEFAULT_SENSOR_WASSER_AKTIV);
   automatikAn       = prefs.getBool("aut", true);
   betriebsSekGesamt = prefs.getUInt("bSek", 0);
+  urlaubsModusAktiv = prefs.getBool("urlA", false);
+  urlaubsEndeUnix   = prefs.getUInt("urlE", 0);
 
   for (int d = 0; d < 7; d++) {
     for (int t = 0; t < TIMER_PRO_TAG; t++) {
@@ -81,6 +86,55 @@ void speicher_timer_speichern() {
 
 void speicher_betrieb_speichern()   { prefs.putUInt("bSek", betriebsSekGesamt); }
 void speicher_automatik_speichern() { prefs.putBool("aut",  automatikAn); }
+void speicher_urlaub_speichern() {
+  prefs.putBool("urlA", urlaubsModusAktiv);
+  prefs.putUInt("urlE", urlaubsEndeUnix);
+}
+
+void automatik_setzen(bool an) {
+  automatikAn = an;
+  speicher_automatik_speichern();
+  // Manueller Eingriff beendet einen eventuell laufenden Urlaubsmodus —
+  // sonst würde der im Hintergrund weiterlaufen und die Automatik später
+  // unerwartet wieder umschalten.
+  if (urlaubsModusAktiv) {
+    urlaubsModusAktiv = false;
+    urlaubsEndeUnix   = 0;
+    speicher_urlaub_speichern();
+  }
+}
+
+void urlaub_starten(uint16_t tage) {
+  if (tage < 1)  tage = 1;
+  if (tage > 90) tage = 90;   // Sicherheitsnetz gegen Tippfehler
+  automatikAn       = false;
+  urlaubsModusAktiv = true;
+  urlaubsEndeUnix   = zeitGesetzt ? (zeit_als_unix() + (uint32_t)tage * 86400UL) : 0;
+  speicher_automatik_speichern();
+  speicher_urlaub_speichern();
+  log_eintrag("Urlaubsmodus gestartet", zeit_als_unix());
+}
+
+void urlaub_beenden() {
+  urlaubsModusAktiv = false;
+  urlaubsEndeUnix   = 0;
+  automatikAn       = true;
+  speicher_automatik_speichern();
+  speicher_urlaub_speichern();
+  log_eintrag("Urlaubsmodus manuell beendet", zeit_als_unix());
+}
+
+void urlaub_tick() {
+  if (!urlaubsModusAktiv || !zeitGesetzt || urlaubsEndeUnix == 0) return;
+  if (zeit_als_unix() >= urlaubsEndeUnix) {
+    urlaubsModusAktiv = false;
+    urlaubsEndeUnix   = 0;
+    automatikAn       = true;
+    speicher_automatik_speichern();
+    speicher_urlaub_speichern();
+    log_eintrag("Urlaubsmodus beendet, Automatik wieder aktiv", zeit_als_unix());
+  }
+}
 
 // Speichert die aktuelle Zeit als "letzten bekannten Stand" in den Flash —
 // wird periodisch aus main.cpp aufgerufen sowie sofort nach jedem manuellen
@@ -96,6 +150,7 @@ void speicher_alles_speichern() {
   speicher_timer_speichern();
   speicher_betrieb_speichern();
   speicher_automatik_speichern();
+  speicher_urlaub_speichern();
 }
 
 void log_eintrag(const char* text, uint32_t ts) {

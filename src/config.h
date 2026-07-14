@@ -54,6 +54,14 @@
 #define BATT_ADC_MAX   4095.0f
 #define BATT_SAMPLES   20
 
+// ── Batterie-Schutz ──────────────────────────────────────────────
+// Liegt die gemessene Spannung in diesem Bereich, wird die Pumpe komplett
+// gesperrt (auch manuell/Funk), um die Batterie vor Tiefentladung zu
+// schützen. Unterhalb von BATT_KRITISCH_MIN wird von einem fehlenden oder
+// nicht angeschlossenen Sensor ausgegangen — dort wird NICHT gesperrt.
+#define BATT_KRITISCH_MIN   0.5f
+#define BATT_KRITISCH_MAX   11.8f
+
 // ── OLED SSD1306 0,96" I2C ─────────────────────────────────────
 // VCC→3.3V  GND→GND  SDA→GPIO5  SCL→GPIO17
 #define OLED_SDA      5

@@ -6,6 +6,10 @@
 bool pumpeTimerAn = false;
 bool pumpeManAn   = false;
 bool pumpeManAus  = false;
+bool pumpeManZeitAktiv = false;
+bool battKritisch  = false;
+
+static unsigned long pumpeManStopMillis = 0;
 
 static bool          letztesPumpeAn         = false;
 static unsigned long letzterTick            = 0;
@@ -23,11 +27,40 @@ void pumpe_init() {
 // Sperre wieder auf. Die Sperre selbst löst sich automatisch, sobald das
 // Zeitfenster regulär endet (siehe pumpe_loop) — zukünftige Timer laufen
 // danach ganz normal wieder an.
-bool pumpe_laeuft() { return !pumpeManAus && (pumpeTimerAn || pumpeManAn); }
+//
+// battKritisch sperrt die Pumpe zusätzlich komplett (auch manuell/Funk),
+// unabhängig von allem anderen — schützt die Batterie vor Tiefentladung.
+bool pumpe_laeuft() { return !battKritisch && !pumpeManAus && (pumpeTimerAn || pumpeManAn); }
 
 void pumpe_manuell(bool an) {
-  pumpeManAn  = an;
-  pumpeManAus = !an;
+  pumpeManAn        = an;
+  pumpeManAus       = !an;
+  pumpeManZeitAktiv = false;   // ein regulärer Toggle beendet eine laufende Zeit-Bewässerung
+}
+
+// Startet eine einmalige, zeitlich begrenzte manuelle Bewässerung — läuft
+// unabhängig vom Wochenprogramm für 'minuten' Minuten und schaltet sich
+// danach von selbst wieder ab (siehe pumpe_betrieb_ticker).
+void pumpe_manuell_zeit(uint16_t minuten) {
+  if (minuten < 1)   minuten = 1;
+  if (minuten > 360) minuten = 360;   // gleiche Obergrenze wie Wochenprogramm-Timer
+  pumpeManAn        = true;
+  pumpeManAus       = false;
+  pumpeManZeitAktiv = true;
+  pumpeManStopMillis = millis() + (unsigned long)minuten * 60000UL;
+}
+
+uint32_t pumpe_manuell_rest_sek() {
+  if (!pumpeManZeitAktiv) return 0;
+  long rest = (long)(pumpeManStopMillis - millis());
+  return rest > 0 ? (uint32_t)(rest / 1000) : 0;
+}
+
+void pumpe_batterie_pruefen(float battV) {
+  bool neu = (battV > BATT_KRITISCH_MIN && battV < BATT_KRITISCH_MAX);
+  if (neu && !battKritisch)  log_eintrag("Pumpe gesperrt: Batterie kritisch", zeit_als_unix());
+  if (!neu && battKritisch)  log_eintrag("Batteriesperre aufgehoben", zeit_als_unix());
+  battKritisch = neu;
 }
 
 void pumpe_schalten(bool an) {
@@ -96,6 +129,17 @@ void pumpe_betrieb_ticker() {
   unsigned long jetzt = millis();
   if ((jetzt - letzterTick) < 1000) return;
   letzterTick = jetzt;
+
+  // Zeitgesteuerte manuelle Bewässerung: nach Ablauf automatisch beenden.
+  // Wichtig: hier NICHT pumpeManAus setzen — das würde einen zufällig
+  // parallel aktiven Wochenplan-Timer blockieren, was nicht der Sinn ist.
+  // Es soll nur die manuelle Komponente enden, der Timer bleibt unberührt.
+  if (pumpeManZeitAktiv && (long)(jetzt - pumpeManStopMillis) >= 0) {
+    pumpeManZeitAktiv = false;
+    pumpeManAn        = false;
+    log_eintrag("Manuelle Zeitbewaesserung beendet", zeit_als_unix());
+  }
+
   bool laeuft = pumpe_laeuft();
   if (laeuft  && !letztesPumpeAn) log_eintrag("Pumpe EIN", zeit_als_unix());
   if (!laeuft &&  letztesPumpeAn) {

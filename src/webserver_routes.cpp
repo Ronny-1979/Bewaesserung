@@ -39,13 +39,19 @@ static void handleStatus() {
 
   String json = "{";
   json += "\"zeit\":\""          + zeit_als_string()            + "\",";
+  json += "\"wochentag\":"       + String(zeit_wochentag())     + ",";
   json += "\"zeitApprox\":"      + String(zeitApproximiert ?1:0) + ",";
   json += "\"regen\":"           + String(regenAktiv      ?1:0) + ",";
   json += "\"wasser\":"          + String(wasserVorhanden  ?1:0) + ",";
   json += "\"pumpe\":"           + String(pumpe_laeuft()   ?1:0) + ",";
   json += "\"pumpeMan\":"        + String(pumpeManAn       ?1:0) + ",";
   json += "\"pumpeManAus\":"     + String(pumpeManAus      ?1:0) + ",";
+  json += "\"pumpeManZeitAktiv\":" + String(pumpeManZeitAktiv ?1:0) + ",";
+  json += "\"pumpeManRestSek\":" + String(pumpe_manuell_rest_sek()) + ",";
+  json += "\"battKritisch\":"    + String(battKritisch     ?1:0) + ",";
   json += "\"automatik\":"       + String(automatikAn      ?1:0) + ",";
+  json += "\"urlaubAktiv\":"     + String(urlaubsModusAktiv?1:0) + ",";
+  json += "\"urlaubEndeDatum\":\"" + unix_als_datum_string(urlaubsEndeUnix) + "\",";
   json += "\"licht\":"           + String(lichtAn          ?1:0) + ",";
   json += "\"betrieb\":\""       + pumpe_betriebszeit_string()  + "\",";
   json += "\"betriebSek\":"      + String(betriebsSekGesamt)    + ",";
@@ -190,8 +196,7 @@ static void handleAutomatik() {
   if (!server.hasArg("an")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
   bool neu = server.arg("an") == "1";
   if (neu != automatikAn) {
-    automatikAn = neu;
-    speicher_automatik_speichern();
+    automatik_setzen(neu);
     log_eintrag(automatikAn ? "Automatik EIN (WebIF)"
                             : "Automatik AUS (WebIF)", zeit_als_unix());
   }
@@ -238,6 +243,31 @@ static void handlePumpe() {
   sendJson("{\"ok\":1}");
 }
 
+// ── POST /api/pumpezeit ────────────────────────────────────────
+static void handlePumpeZeit() {
+  if (!server.hasArg("minuten")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
+  int minuten = server.arg("minuten").toInt();
+  if (minuten < 1) minuten = 1;
+  pumpe_manuell_zeit((uint16_t)minuten);
+  log_eintrag("Manuelle Zeitbewaesserung gestartet", zeit_als_unix());
+  sendJson("{\"ok\":1}");
+}
+
+// ── POST /api/urlaubstart ──────────────────────────────────────
+static void handleUrlaubStart() {
+  if (!server.hasArg("tage")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
+  int tage = server.arg("tage").toInt();
+  if (tage < 1) tage = 1;
+  urlaub_starten((uint16_t)tage);
+  sendJson("{\"ok\":1}");
+}
+
+// ── POST /api/urlaubende ───────────────────────────────────────
+static void handleUrlaubEnde() {
+  urlaub_beenden();
+  sendJson("{\"ok\":1}");
+}
+
 // ── POST /api/licht ───────────────────────────────────────────
 static void handleLicht() {
   if (!server.hasArg("an")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
@@ -272,6 +302,9 @@ void webserver_init() {
   server.on("/api/zeit",      HTTP_POST, handleZeit);
   server.on("/api/timer",     HTTP_POST, handleTimer);
   server.on("/api/pumpe",     HTTP_POST, handlePumpe);
+  server.on("/api/pumpezeit", HTTP_POST, handlePumpeZeit);
+  server.on("/api/urlaubstart", HTTP_POST, handleUrlaubStart);
+  server.on("/api/urlaubende",  HTTP_POST, handleUrlaubEnde);
   server.on("/api/licht",     HTTP_POST, handleLicht);
   server.on("/api/log",       HTTP_GET,  handleLog);
   server.onNotFound([]() { server.send(404,"text/plain","Nicht gefunden"); });

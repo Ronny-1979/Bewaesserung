@@ -2,12 +2,11 @@
 #include "config.h"
 #include "storage.h"
 #include "zeitverwaltung.h"
+#include "entprellung.h"
 
 bool lichtAn = false;
 
-static bool          lt_letzterPegel   = HIGH;
-static bool          lt_bestaetigt     = HIGH;
-static unsigned long lt_aenderungsZeit = 0;
+static Entpreller lichtTaster;
 
 void licht_init() {
   // Active LOW (Optokoppler): HIGH = AUS beim Start
@@ -15,9 +14,7 @@ void licht_init() {
   digitalWrite(PIN_LICHT, HIGH);
   lichtAn = false;
   pinMode(PIN_LICHT_TASTER, INPUT_PULLUP);
-  lt_letzterPegel   = digitalRead(PIN_LICHT_TASTER);
-  lt_bestaetigt     = lt_letzterPegel;
-  lt_aenderungsZeit = millis();
+  entprellung_init(lichtTaster, PIN_LICHT_TASTER, 50);
   // Hinweis: Pin-Info wird zentral einmal in main.cpp::setup() geloggt
 }
 
@@ -31,15 +28,5 @@ void licht_schalten(bool an) {
 void licht_toggle() { licht_schalten(!lichtAn); }
 
 void licht_taster_loop() {
-  bool aktuell = digitalRead(PIN_LICHT_TASTER);
-  if (aktuell != lt_letzterPegel) {
-    lt_aenderungsZeit = millis();
-    lt_letzterPegel   = aktuell;
-  }
-  if ((millis() - lt_aenderungsZeit) >= 50) {
-    if (aktuell != lt_bestaetigt) {
-      lt_bestaetigt = aktuell;
-      if (lt_bestaetigt == LOW) licht_toggle();
-    }
-  }
+  if (entprellung_fallende_flanke(lichtTaster, PIN_LICHT_TASTER)) licht_toggle();
 }

@@ -2,8 +2,8 @@
 
 bool          zeitGesetzt      = false;
 bool          zeitApproximiert = false;
-struct tm     manuelleZeit     = {0};
-unsigned long zeitBasisMillis  = 0;
+static struct tm     manuelleZeit    = {0};   // nur intern als mktime()-Zwischenspeicher gebraucht
+static unsigned long zeitBasisMillis = 0;
 static time_t epochBasis       = 0;   // einmal berechnet, gecacht
 
 void zeit_setzen(int tag, int mon, int jahr, int std, int min, int sek) {
@@ -60,3 +60,15 @@ String zeit_als_string() {
 }
 
 int zeit_wochentag() { return zeit_aktuell().tm_wday; }
+
+// Formatiert einen beliebigen Unix-Zeitstempel als TT.MM.JJJJ — unabhängig
+// von der laufenden Uhr, z.B. für das Urlaubsmodus-Enddatum.
+String unix_als_datum_string(uint32_t epoch) {
+  if (epoch == 0) return "-";
+  time_t ep = (time_t)epoch;
+  struct tm t;
+  localtime_r(&ep, &t);
+  char buf[16];
+  snprintf(buf, sizeof(buf), "%02d.%02d.%04d", t.tm_mday, t.tm_mon + 1, t.tm_year + 1900);
+  return String(buf);
+}

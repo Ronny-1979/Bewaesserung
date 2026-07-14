@@ -79,6 +79,9 @@ void setup() {
   } else {
     Serial.println("Zeit      : nicht gesetzt");
   }
+  if (urlaubsModusAktiv) {
+    Serial.printf("Urlaub    : aktiv bis %s\n", unix_als_datum_string(urlaubsEndeUnix).c_str());
+  }
 
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASSWORD);
@@ -102,6 +105,7 @@ void loop() {
     float v_adc  = (sum / (float)BATT_SAMPLES) * (BATT_ADC_REF / BATT_ADC_MAX);
     battSpannung = v_adc * BATT_TEILER;
   }
+  pumpe_batterie_pruefen(battSpannung);
 
   // 3. Automatik-Taster
   taster_loop();
@@ -139,6 +143,9 @@ void loop() {
     letzteZeitSicherung = jetzt;
     speicher_zeit_speichern();
   }
+
+  // 13. Urlaubsmodus: prüfen ob automatisch beendet werden soll
+  urlaub_tick();
 
   delay(100);
 }
