@@ -2,38 +2,34 @@
 #include <Arduino.h>
 
 // ═══════════════════════════════════════════════════════════════
-//  Gemeinsame Entprellungs-Logik für Taster (gegen GND, INPUT_PULLUP).
-//  Ersetzt den vorher doppelt vorhandenen Code in taster.cpp und
-//  licht_steuerung.cpp durch eine einzige, gemeinsam genutzte Stelle.
+//  Gemeinsame Entprellungs-Logik für Taster & Funk-Eingänge.
+//
+//  Die Hauptschleife läuft nur mit ca. 10Hz (delay(100) in main.cpp). Ein
+//  kurzer Tasten-/RF-Impuls könnte dabei zwischen zwei loop()-Durchläufen
+//  verlorengehen, wenn man nur digitalRead() pollt. Daher fangen wir die
+//  auslösende Flanke per Hardware-Interrupt ab (verpasst nichts) und werten
+//  sie zeitbasiert entprellt im normalen loop() aus: Auslösungen innerhalb
+//  von sperrMs nach der letzten akzeptierten werden ignoriert (fängt
+//  sowohl mechanisches Prellen als auch RF-Mehrfachimpulse ab).
 // ═══════════════════════════════════════════════════════════════
 
 struct Entpreller {
-  bool          letzterPegel;
-  bool          bestaetigt;
-  unsigned long aenderungsZeit;
-  uint16_t      debounceMs;
+  volatile bool flag;
+  unsigned long sperrBis;
 };
 
-inline void entprellung_init(Entpreller& e, int pin, uint16_t debounceMs) {
-  e.letzterPegel   = digitalRead(pin);
-  e.bestaetigt     = e.letzterPegel;
-  e.aenderungsZeit = millis();
-  e.debounceMs     = debounceMs;
+inline void entprellung_init(Entpreller& e) {
+  e.flag     = false;
+  e.sperrBis = 0;
 }
 
-// Liefert true genau dann, wenn der entprellte Pegel gerade auf LOW
-// gewechselt hat (fallende Flanke, z.B. Taster gegen GND gedrückt).
-inline bool entprellung_fallende_flanke(Entpreller& e, int pin) {
-  bool aktuell = digitalRead(pin);
-  if (aktuell != e.letzterPegel) {
-    e.aenderungsZeit = millis();
-    e.letzterPegel   = aktuell;
-  }
-  if ((millis() - e.aenderungsZeit) >= e.debounceMs) {
-    if (aktuell != e.bestaetigt) {
-      e.bestaetigt = aktuell;
-      if (e.bestaetigt == LOW) return true;
-    }
-  }
-  return false;
+// Aus loop() aufzurufen. Liefert true genau dann, wenn seit dem letzten
+// Interrupt-Flag mindestens sperrMs seit der letzten Auslösung vergangen sind.
+inline bool entprellung_ausgeloest(Entpreller& e, uint16_t sperrMs) {
+  if (!e.flag) return false;
+  e.flag = false;
+  unsigned long jetzt = millis();
+  if ((jetzt - e.sperrBis) < (unsigned long)sperrMs) return false;
+  e.sperrBis = jetzt;
+  return true;
 }
