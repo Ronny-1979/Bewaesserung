@@ -105,7 +105,12 @@ Konfiguration.
 
 ## Build & Flash
 
-Projekt basiert auf [PlatformIO](https://platformio.org/).
+**Ohne PlatformIO/VS Code:** [Bewässerungssteuerung im Browser flashen](https://ronny-1979.github.io/Bewaesserung/)
+— ESP32 per USB anschließen, Seite in Chrome/Edge öffnen (Web Serial API,
+kein Firefox/Safari) und auf „Installieren" klicken. Die Seite wird bei
+jedem Push auf `main` automatisch mit der neuesten Firmware aktualisiert.
+
+Projekt basiert ansonsten auf [PlatformIO](https://platformio.org/).
 
 ```bash
 pio run -t upload           # Firmware flashen
