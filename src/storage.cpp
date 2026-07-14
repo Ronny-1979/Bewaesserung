@@ -80,11 +80,15 @@ void speicher_timer_speichern() {
     for (int t = 0; t < TIMER_PRO_TAG; t++) {
       char k[8];
       snprintf(k, sizeof(k), "t%d%d", d, t);
+      // Defensiv auf die überall sonst gültige Obergrenze klemmen, bevor in
+      // die nur 10 Bit breite NVS-Packung geschrieben wird (sonst würde ein
+      // dauerMin > 1023 stillschweigend abgeschnitten statt begrenzt).
+      uint16_t dauer = (woche[d].timer[t].dauerMin > 360) ? 360 : woche[d].timer[t].dauerMin;
       uint32_t v =
         ((uint32_t)(woche[d].timer[t].aktiv    ? 1:0)  << 21) |
         ((uint32_t)(woche[d].timer[t].einH     & 0x1F) << 16) |
         ((uint32_t)(woche[d].timer[t].einM     & 0x3F) << 10) |
-        ((uint32_t)(woche[d].timer[t].dauerMin & 0x3FF));
+        ((uint32_t)(dauer                      & 0x3FF));
       prefs.putUInt(k, v);
     }
   }
@@ -119,8 +123,15 @@ bool urlaub_starten(uint16_t tage) {
   automatikAn       = false;
   urlaubsModusAktiv = true;
   urlaubsEndeUnix   = zeit_als_unix() + (uint32_t)tage * 86400UL;
-  speicher_automatik_speichern();
+  // Reihenfolge bewusst: Urlaubs-Flags zuerst persistieren. Bricht die
+  // Stromversorgung zwischen den beiden Commits ab, bleibt so zumindest
+  // urlaubsModusAktiv=true mit gültigem Enddatum gespeichert — automatikAn
+  // bleibt dann zwar vorübergehend beim alten (true) Wert stehen, aber
+  // urlaub_tick() beendet den Urlaub trotzdem zuverlässig zum Enddatum
+  // (selbstheilend). Andersherum (automatikAn zuerst) könnte ein Absturz
+  // die Automatik dauerhaft ohne Wiederherstellungsweg deaktiviert lassen.
   speicher_urlaub_speichern();
+  speicher_automatik_speichern();
   log_eintrag("Urlaubsmodus gestartet", zeit_als_unix());
   return true;
 }

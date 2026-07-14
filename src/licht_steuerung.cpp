@@ -4,9 +4,13 @@
 #include "zeitverwaltung.h"
 #include "entprellung.h"
 
+#define LICHT_TASTER_DEBOUNCE_MS 50
+
 bool lichtAn = false;
 
 static Entpreller lichtTaster;
+
+static void IRAM_ATTR licht_taster_isr() { lichtTaster.flag = true; }
 
 void licht_init() {
   // Active LOW (Optokoppler): HIGH = AUS beim Start
@@ -14,7 +18,8 @@ void licht_init() {
   digitalWrite(PIN_LICHT, HIGH);
   lichtAn = false;
   pinMode(PIN_LICHT_TASTER, INPUT_PULLUP);
-  entprellung_init(lichtTaster, PIN_LICHT_TASTER, 50);
+  entprellung_init(lichtTaster);
+  attachInterrupt(digitalPinToInterrupt(PIN_LICHT_TASTER), licht_taster_isr, FALLING);
   // Hinweis: Pin-Info wird zentral einmal in main.cpp::setup() geloggt
 }
 
@@ -28,5 +33,5 @@ void licht_schalten(bool an) {
 void licht_toggle() { licht_schalten(!lichtAn); }
 
 void licht_taster_loop() {
-  if (entprellung_fallende_flanke(lichtTaster, PIN_LICHT_TASTER)) licht_toggle();
+  if (entprellung_ausgeloest(lichtTaster, LICHT_TASTER_DEBOUNCE_MS)) licht_toggle();
 }

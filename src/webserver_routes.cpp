@@ -230,9 +230,12 @@ static void handleZeit() {
       !server.hasArg("h")||!server.hasArg("mi")||!server.hasArg("s")) {
     sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return;
   }
-  zeit_setzen(server.arg("t").toInt(), server.arg("m").toInt(),
-              server.arg("j").toInt(), server.arg("h").toInt(),
-              server.arg("mi").toInt(), server.arg("s").toInt());
+  int t=server.arg("t").toInt(), m=server.arg("m").toInt(), j=server.arg("j").toInt();
+  int h=server.arg("h").toInt(), mi=server.arg("mi").toInt(), s=server.arg("s").toInt();
+  if (t<1||t>31||m<1||m>12||j<2000||j>2099||h<0||h>23||mi<0||mi>59||s<0||s>59) {
+    sendJson("{\"ok\":0,\"err\":\"Ungueltige Zeit\"}"); return;
+  }
+  zeit_setzen(t, m, j, h, mi, s);
   speicher_zeit_speichern();
   log_eintrag("Zeit gesetzt", zeit_als_unix());
   sendJson("{\"ok\":1}");
@@ -273,7 +276,8 @@ static void handlePumpeZeit() {
     sendJson("{\"ok\":0,\"err\":\"Pumpe gesperrt: Batterie kritisch\"}"); return;
   }
   int minuten = server.arg("minuten").toInt();
-  if (minuten < 1) minuten = 1;
+  if (minuten < 1)   minuten = 1;
+  if (minuten > 360) minuten = 360;
   pumpe_manuell_zeit((uint16_t)minuten);
   log_eintrag("Manuelle Zeitbewaesserung gestartet", zeit_als_unix());
   sendJson("{\"ok\":1}");
