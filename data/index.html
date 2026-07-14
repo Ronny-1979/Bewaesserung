@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Bewässerung v12</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
+:root {
+  --bg:#0a0e14; --panel:#0f1923; --card:#141e2b; --border:#1e3048;
+  --accent:#00d4aa; --accentD:#009b7c;
+  --red:#ff4757; --orange:#ffa502; --yellow:#ffd32a;
+  --blue:#1e90ff; --green:#2ed573;
+  --text:#ccd6f6; --muted:#5a7a9a;
+  --r:8px; --mono:'JetBrains Mono',monospace; --sans:'Rajdhani',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:300;min-height:100vh;padding-bottom:40px}
+
+.header{background:linear-gradient(135deg,#0f1923,#0a1628);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{font-family:var(--mono);font-size:.9rem;color:var(--accent);letter-spacing:3px;display:flex;align-items:center;gap:10px}
+.logo::before{content:'';width:8px;height:8px;background:var(--accent);border-radius:50%;box-shadow:0 0 8px var(--accent);animation:hb 2s ease-in-out infinite}
+@keyframes hb{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+.header-zeit{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+
+.nav{display:flex;gap:2px;padding:12px 16px 0;border-bottom:1px solid var(--border);background:var(--panel);overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav-btn{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:var(--sans);font-weight:500;font-size:.78rem;letter-spacing:1px;padding:8px 14px 10px;cursor:pointer;white-space:nowrap;transition:color .2s,border-color .2s;text-transform:uppercase}
+.nav-btn:hover{color:var(--text)}.nav-btn.aktiv{color:var(--accent);border-bottom-color:var(--accent)}
+
+.seite{display:none;padding:16px}.seite.aktiv{display:block}
+
+/* Automatik-Button */
+.automatik-btn{width:100%;padding:18px 16px;border-radius:var(--r);border:2px solid var(--border);background:var(--card);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:14px;transition:all .3s;margin-bottom:12px;position:relative;overflow:hidden}
+.automatik-btn::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .3s}
+.automatik-btn.ein{border-color:var(--accent);box-shadow:0 0 28px #00d4aa18}
+.automatik-btn.ein::before{background:linear-gradient(135deg,#00d4aa08,transparent);opacity:1}
+.automatik-btn.aus{border-color:#ff475766;box-shadow:0 0 20px #ff475718}
+.automatik-btn.aus::before{background:linear-gradient(135deg,#ff475708,transparent);opacity:1}
+.automatik-btn:active{transform:scale(.98)}
+.auto-left{display:flex;align-items:center;gap:14px}
+.auto-icon{font-size:2rem}
+.auto-texts{display:flex;flex-direction:column;gap:2px;text-align:left}
+.auto-titel{font-weight:700;font-size:1.05rem;letter-spacing:1.5px;text-transform:uppercase}
+.automatik-btn.ein .auto-titel{color:var(--accent)}.automatik-btn.aus .auto-titel{color:var(--red)}
+.auto-sub{font-size:.72rem;color:var(--muted)}
+.auto-toggle{width:58px;height:32px;border-radius:32px;border:2px solid var(--border);background:var(--border);position:relative;transition:background .3s,border-color .3s;flex-shrink:0}
+.auto-toggle.ein{background:var(--accentD);border-color:var(--accent)}
+.auto-toggle.aus{background:#6e1a1a;border-color:var(--red)}
+.auto-toggle::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .3s;box-shadow:0 1px 4px #0006}
+.auto-toggle.ein::after{transform:translateX(26px)}
+
+/* LED-Leiste */
+.led-leiste{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.led-kachel{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .3s,box-shadow .3s}
+.led-bulb{width:20px;height:20px;border-radius:50%;background:#1a2535;border:2px solid var(--border);transition:background .3s,box-shadow .4s}
+.led-label{font-size:.58rem;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;text-align:center;line-height:1.3}
+.led-kachel.led-on-blue  .led-bulb{background:#1e90ff;border-color:#1e90ff;box-shadow:0 0 10px #1e90ff,0 0 20px #1e90ff55}
+.led-kachel.led-on-green .led-bulb{background:#2ed573;border-color:#2ed573;box-shadow:0 0 10px #2ed573,0 0 20px #2ed57355}
+.led-kachel.led-on-yellow .led-bulb{background:#ffd32a;border-color:#ffd32a;box-shadow:0 0 10px #ffd32a,0 0 20px #ffd32a55}
+.led-kachel.led-on-red  .led-bulb{background:#ff4757;border-color:#ff4757;box-shadow:0 0 10px #ff4757,0 0 20px #ff475755}
+.led-kachel.led-on-blue{border-color:#1e90ff44}.led-kachel.led-on-green{border-color:#2ed57344}
+.led-kachel.led-on-yellow{border-color:#ffd32a44}.led-kachel.led-on-red{border-color:#ff475744}
+
+/* Sensor-Pegel-Badge im Dashboard */
+.pegel-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;font-family:var(--mono);font-size:.7rem;font-weight:700;letter-spacing:.5px}
+.pegel-high{background:#0a2e20;color:var(--accent);border:1px solid var(--accentD)}
+.pegel-low {background:#1a2535;color:var(--muted); border:1px solid var(--border)}
+
+/* Status-Kacheln */
+.kacheln{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.kachel{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:5px;transition:border-color .4s,box-shadow .4s;position:relative;overflow:hidden}
+.kachel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--border);transition:background .4s}
+.kachel.ok::before{background:var(--accent)}.kachel.warn::before{background:var(--red)}.kachel.info::before{background:var(--blue)}
+.kachel.ok{border-color:#00d4aa22;box-shadow:0 0 16px #00d4aa0d}
+.kachel.warn{border-color:#ff475722;box-shadow:0 0 16px #ff47570d}
+.kachel.info{border-color:#1e90ff22;box-shadow:0 0 16px #1e90ff0d}
+.kachel .icon{font-size:1.6rem}.kachel .k-label{font-size:.62rem;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase}
+.kachel .k-wert{font-family:var(--mono);font-size:.9rem;font-weight:700}
+.kachel.ok .k-wert{color:var(--accent)}.kachel.warn .k-wert{color:var(--red)}.kachel.info .k-wert{color:var(--blue)}
+.kachel.full{grid-column:1/-1;flex-direction:row;justify-content:space-between;padding:14px 16px}
+.kachel.full .k-left{display:flex;align-items:center;gap:12px}
+.kachel.full .k-meta{display:flex;flex-direction:column;gap:2px}
+
+/* Pumpen-Button */
+.pumpe-btn{width:100%;padding:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--card);color:var(--text);font-family:var(--sans);font-weight:700;font-size:1rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .25s;margin-bottom:12px}
+.pumpe-btn.ein{background:#6e1a1a;border-color:var(--red);color:var(--red);box-shadow:0 0 20px #ff475720}
+.pumpe-btn.aus{background:#0a2e20;border-color:var(--accent);color:var(--accent);box-shadow:0 0 20px #00d4aa20}
+
+/* Card */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.card-title{font-size:.75rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Formular */
+.gruppe{margin-bottom:14px}
+.gruppe label{display:block;font-size:.72rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+select,input[type=number],input[type=text],textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:9px 11px;font-family:var(--mono);font-size:.82rem;outline:none;-webkit-appearance:none;appearance:none;transition:border-color .2s}
+textarea{resize:vertical;min-height:120px;line-height:1.4}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%235a7a9a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+/* Pegel-Toggle-Gruppe */
+.pegel-gruppe{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.pegel-titel{font-size:.72rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.pegel-zeile{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.pegel-zeile:last-child{border-bottom:none;padding-bottom:0}
+.pegel-icon{font-size:1.4rem;flex-shrink:0}
+.pegel-text{flex:1}
+.pegel-name{font-weight:700;font-size:.9rem}
+.pegel-desc{font-size:.72rem;color:var(--muted);margin-top:2px}
+.pegel-selector{display:flex;gap:6px;flex-shrink:0}
+.pegel-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-family:var(--mono);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.pegel-btn.aktiv-high{background:#0a2e20;color:var(--accent);border-color:var(--accentD)}
+.pegel-btn.aktiv-low {background:#1a1e30;color:var(--blue);border-color:var(--blue)}
+.pegel-btn:not(.aktiv-high):not(.aktiv-low):hover{border-color:var(--muted);color:var(--text)}
+
+/* Betrieb */
+.betr-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+.betr-fill{height:100%;background:linear-gradient(90deg,var(--accentD),var(--accent));border-radius:3px;width:0%;transition:width 1s ease}
+
+/* Timer */
+.woche-tabs{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
+.woche-tabs::-webkit-scrollbar{display:none}
+.tag-btn{flex-shrink:0;width:40px;height:40px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-family:var(--sans);font-weight:700;font-size:.78rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;position:relative}
+.tag-btn.aktiv-tag{background:var(--card);color:var(--accent);border-color:var(--accent)}
+.tag-btn .dot{position:absolute;bottom:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--accentD);display:none}
+.tag-btn.hat-timer .dot{display:block}
+.timer-slot{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+.timer-slot-kopf{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.timer-nr{font-family:var(--mono);font-size:.7rem;color:var(--muted);background:var(--border);border-radius:4px;padding:2px 6px}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:24px;cursor:pointer;transition:.25s}
+.toggle-track::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:.25s}
+.toggle input:checked+.toggle-track{background:var(--accentD)}
+.toggle input:checked+.toggle-track::before{transform:translateX(20px);background:#fff}
+
+/* LED+Funk-Info */
+.led-info-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;margin-top:14px}
+.led-info-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.led-info-row:last-child{border-bottom:none}
+.led-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.led-dot.blue{background:#1e90ff;box-shadow:0 0 6px #1e90ff}.led-dot.green{background:#2ed573;box-shadow:0 0 6px #2ed573}
+.led-dot.yellow{background:#ffd32a;box-shadow:0 0 6px #ffd32a}.led-dot.red{background:#ff4757;box-shadow:0 0 6px #ff4757}
+.led-info-text{flex:1}.led-info-pin{font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+
+/* Backup */
+.import-drop{border:2px dashed var(--border);border-radius:8px;padding:24px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;font-size:.85rem;color:var(--muted);margin-bottom:10px}
+.import-drop:hover,.import-drop.dragover{border-color:var(--accent);background:#00d4aa08;color:var(--accent)}
+.import-drop input{display:none}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:.75rem;font-family:var(--mono)}
+.pill-ok{background:#0a2e20;color:var(--accent);border:1px solid var(--accentD)}
+.pill-err{background:#6e1a1a;color:var(--red);border:1px solid var(--red)}
+
+/* Log */
+.log-liste{display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto}
+.log-eintrag{display:flex;gap:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:.75rem}
+.log-ts{color:var(--muted);flex-shrink:0}.log-txt{color:var(--text)}
+
+/* Buttons */
+.btn{border:none;border-radius:6px;padding:10px 20px;font-family:var(--sans);font-weight:700;font-size:.82rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:opacity .2s,transform .1s;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(.96)}.btn-ok{background:var(--accentD);color:#fff}.btn-ok:hover{opacity:.85}
+.btn-ghost{background:var(--border);color:var(--text)}.btn-warn{background:#6e1a1a;color:var(--red)}
+.btn-block{width:100%;justify-content:center;margin-top:10px}
+.io-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--accentD);color:#fff;padding:10px 24px;border-radius:20px;font-family:var(--sans);font-size:.85rem;font-weight:500;pointer-events:none;transition:transform .3s,opacity .3s;opacity:0;z-index:999;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.err{background:#6e1a1a;color:var(--red)}
+
+hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">BEWÄSSERUNG</div>
+  <div class="header-zeit" id="headerZeit">--:--:--</div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn aktiv" onclick="zeigSeite('dashboard',this)">Dashboard</button>
+  <button class="nav-btn" onclick="zeigSeite('timer',this)">Timer</button>
+  <button class="nav-btn" onclick="zeigSeite('gpio',this)">GPIO</button>
+  <button class="nav-btn" onclick="zeigSeite('zeit',this)">Zeit</button>
+  <button class="nav-btn" onclick="zeigSeite('backup',this)">Backup</button>
+  <button class="nav-btn" onclick="zeigSeite('log',this)">Log</button>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="seite aktiv" id="seite-dashboard">
+
+  <button class="automatik-btn" id="btn-automatik" onclick="automatikToggle()">
+    <div class="auto-left">
+      <div class="auto-icon" id="auto-icon">🤖</div>
+      <div class="auto-texts">
+        <div class="auto-titel" id="auto-titel">Automatik</div>
+        <div class="auto-sub"  id="auto-sub">Timer-Bewässerung</div>
+      </div>
+    </div>
+    <div class="auto-toggle" id="auto-toggle"></div>
+  </button>
+
+  <div class="led-leiste">
+    <div class="led-kachel" id="led-automatik"><div class="led-bulb"></div><div class="led-label">Auto&shy;matik</div></div>
+    <div class="led-kachel" id="led-wasser"><div class="led-bulb"></div><div class="led-label">Wasser&shy;fass</div></div>
+    <div class="led-kachel" id="led-regen"><div class="led-bulb"></div><div class="led-label">Regen</div></div>
+    <div class="led-kachel" id="led-pumpe-led"><div class="led-bulb"></div><div class="led-label">Pumpe läuft</div></div>
+    <div class="led-kachel" id="led-licht"><div class="led-bulb"></div><div class="led-label">Licht</div></div>
+  </div>
+
+  <div class="kacheln">
+    <div class="kachel" id="k-regen">
+      <div class="icon">🌧️</div>
+      <div class="k-label">Regen</div>
+      <div class="k-wert" id="v-regen">–</div>
+      <div id="badge-regen"></div>
+    </div>
+    <div class="kachel" id="k-wasser">
+      <div class="icon">🪣</div>
+      <div class="k-label">Wasserfass</div>
+      <div class="k-wert" id="v-wasser">–</div>
+      <div id="badge-wasser"></div>
+    </div>
+  </div>
+
+  <div class="kacheln">
+    <div class="kachel full" id="k-pumpe">
+      <div class="k-left"><div class="icon">⚙️</div><div class="k-meta"><div class="k-label">Pumpe</div><div class="k-wert" id="v-pumpe">–</div></div></div>
+      <div style="text-align:right"><div class="k-label">Betriebszeit</div><div class="k-wert" id="v-betrieb" style="font-size:.85rem">–</div></div>
+    </div>
+  </div>
+
+  <div class="kacheln">
+    <div class="kachel full" id="k-batt">
+      <div class="k-left">
+        <div class="icon">🔋</div>
+        <div class="k-meta">
+          <div class="k-label">Batterie</div>
+          <div class="k-wert" id="v-batt">–</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="k-label">Zustand</div>
+        <div class="k-wert" id="v-batt-status" style="font-size:.85rem">–</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kacheln">
+    <div class="kachel full" id="k-licht">
+      <div class="k-left"><div class="icon">💡</div><div class="k-meta"><div class="k-label">Beleuchtung</div><div class="k-wert" id="v-licht">–</div></div></div>
+      <div style="text-align:right"><div class="k-label">Taster GPIO14</div><div class="k-wert" style="font-size:.75rem;color:var(--muted)">+ WebIF</div></div>
+    </div>
+  </div>
+
+  <button class="pumpe-btn" id="btn-licht" onclick="lichtTasten()" style="margin-bottom:8px">
+    <span id="licht-icon">💡</span><span id="licht-txt">Licht einschalten</span>
+  </button>
+
+  <button class="pumpe-btn" id="btn-pumpe" onclick="pumpeTasten()">
+    <span id="pumpe-icon">▶</span><span id="pumpe-txt">Pumpe manuell einschalten</span>
+  </button>
+
+  <div class="card">
+    <div class="card-title">⏱ Betriebsstunden gesamt</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <span id="betr-label" style="font-family:var(--mono);font-size:1.2rem;color:var(--accent)">0h 00min</span>
+      <span id="betr-sek" style="font-size:.72rem;color:var(--muted)">0 Sek.</span>
+    </div>
+    <div class="betr-bar"><div class="betr-fill" id="betr-fill"></div></div>
+  </div>
+</div>
+
+<!-- ═══ TIMER ═══ -->
+<div class="seite" id="seite-timer">
+  <div class="card">
+    <div class="card-title">📅 Wochenprogramm</div>
+    <p class="hint">Pro Tag bis zu 3 Timer. Pumpe startet nur wenn <span style="color:var(--accent)">Automatik EIN</span>, <span style="color:var(--accent)">Wasser vorhanden</span> und <span style="color:var(--accent)">kein Regen</span>.</p>
+    <div class="woche-tabs" id="woche-tabs"></div>
+    <div id="timer-slots"></div>
+    <button class="btn btn-ok btn-block" onclick="alleTimerSpeichern()">✓ Alle Timer speichern</button>
+  </div>
+</div>
+
+<!-- ═══ GPIO ═══ -->
+<div class="seite" id="seite-gpio">
+
+  <!-- Sensor-Pegel-Konfiguration -->
+  <div class="card">
+    <div class="card-title">📶 Sensor-Aktivpegel</div>
+    <p class="hint">
+      Stelle hier ein bei welchem Pegel (HIGH = 3,3V oder LOW = 0V) dein Sensor
+      „aktiv" meldet. Hängt vom Sensor-Typ und der Beschaltung ab.
+      Deine 2-Kabel Sensoren: <strong style="color:var(--accent)">HIGH = aktiv</strong>.
+    </p>
+
+    <div class="pegel-gruppe">
+      <div class="pegel-titel">Aktivpegel pro Sensor</div>
+
+      <div class="pegel-zeile">
+        <div class="pegel-icon">🌧️</div>
+        <div class="pegel-text">
+          <div class="pegel-name">Regensensor</div>
+          <div class="pegel-desc" id="pegel-regen-desc">–</div>
+        </div>
+        <div class="pegel-selector">
+          <button class="pegel-btn" id="pb-regen-high" onclick="pegelSetzen('regen','high')">HIGH</button>
+          <button class="pegel-btn" id="pb-regen-low"  onclick="pegelSetzen('regen','low')">LOW</button>
+        </div>
+      </div>
+
+      <div class="pegel-zeile">
+        <div class="pegel-icon">🪣</div>
+        <div class="pegel-text">
+          <div class="pegel-name">Wasserstandssensor</div>
+          <div class="pegel-desc" id="pegel-wasser-desc">–</div>
+        </div>
+        <div class="pegel-selector">
+          <button class="pegel-btn" id="pb-wasser-high" onclick="pegelSetzen('wasser','high')">HIGH</button>
+          <button class="pegel-btn" id="pb-wasser-low"  onclick="pegelSetzen('wasser','low')">LOW</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg);border:1px solid #1e90ff22;border-radius:6px;padding:12px;font-size:.78rem;color:var(--muted);line-height:1.7">
+      <span style="color:var(--blue)">ℹ</span>
+      <strong style="color:var(--text)"> Wie funktioniert das?</strong><br>
+      Der ESP32 aktiviert automatisch den passenden internen Widerstand — kein externer Widerstand nötig.<br><br>
+      <strong style="color:var(--accent)">HIGH = aktiv gewählt:</strong><br>
+      → Interner <strong>PULLDOWN</strong> aktiv → Pin liegt ohne Sensor stabil auf LOW (= inaktiv)<br>
+      → Sensor schließt Pin nach 3,3V → HIGH → Sensor „aktiv"<br>
+      → Typisch wenn Kabel 2 deines Sensors an GND hängt<br><br>
+      <strong style="color:var(--blue)">LOW = aktiv gewählt:</strong><br>
+      → Interner <strong>PULLUP</strong> aktiv → Pin liegt ohne Sensor stabil auf HIGH (= inaktiv)<br>
+      → Sensor schließt Pin nach GND → LOW → Sensor „aktiv"<br>
+      → Typisch wenn Kabel 2 deines Sensors an GND hängt und schaltet
+    </div>
+  </div>
+
+  <!-- Pumpen-Relais-Polarität -->
+  <div class="card">
+    <div class="card-title">⚙️ Pumpen-Relais-Polarität</div>
+    <p class="hint">
+      Stellt ein wie das Relais-Modul geschaltet wird. Viele günstige Module
+      sind „active LOW" — die schalten verkehrt herum. Falls die Pumpe direkt
+      beim Booten anläuft → andere Polarität wählen.
+    </p>
+
+    <div class="pegel-gruppe">
+      <div class="pegel-titel">Wann läuft die Pumpe?</div>
+      <div class="pegel-zeile">
+        <div class="pegel-icon">⚙️</div>
+        <div class="pegel-text">
+          <div class="pegel-name">Relais-Modul</div>
+          <div class="pegel-desc" id="pumpepol-desc">–</div>
+        </div>
+        <div class="pegel-selector">
+          <button class="pegel-btn" id="pp-high" onclick="pumpePolSetzen(true)">HIGH</button>
+          <button class="pegel-btn" id="pp-low"  onclick="pumpePolSetzen(false)">LOW</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg);border:1px solid #ffa50222;border-radius:6px;padding:12px;font-size:.78rem;color:var(--muted);line-height:1.7">
+      <span style="color:var(--orange)">⚠</span>
+      <strong style="color:var(--text)"> Pumpe läuft direkt beim Einschalten?</strong>
+      → Polarität umschalten. Das passiert oft mit günstigen China-Relais-Modulen
+      (SRD-05VDC etc.), die sind meistens „active LOW".
+    </div>
+  </div>
+
+  <!-- GPIO-Pins (fest in v12) -->
+  <div class="card">
+    <div class="card-title">🔌 GPIO – Feste Pins (v12)</div>
+    <p class="hint">In v12 sind alle Pins fest im Code definiert und können nicht mehr geändert werden.</p>
+    <div id="gpio-fest-info" style="font-family:var(--mono);font-size:.82rem;line-height:2"></div>
+    <div style="background:var(--bg);border:1px solid #00d4aa22;border-radius:6px;padding:10px;font-size:.78rem;color:var(--muted);margin-top:10px">
+      <span style="color:var(--accent)">ℹ</span> Pegel und Relais-Polarität sind weiterhin oben einstellbar.
+    </div>
+  </div>
+
+  <!-- LED-Info -->
+  <div class="card">
+    <div class="card-title">💡 LED-Pins (fest im Code)</div>
+    <p class="hint">Jede LED: GPIO → 330 Ω → LED(+) → LED(−) → GND</p>
+    <div class="led-info-box" id="led-info-box"></div>
+  </div>
+
+  <!-- Aktiver Pull-Widerstand Status -->
+  <div class="card">
+    <div class="card-title">🔧 Aktiver interner Pull-Widerstand</div>
+    <p class="hint">Wird automatisch je nach Pegeleinstellung gesetzt. Kein externer Widerstand nötig.</p>
+    <div class="led-info-box" id="pull-info-box">
+      <div style="color:var(--muted);font-size:.8rem;padding:8px">Lade...</div>
+    </div>
+  </div>
+
+  <!-- Funk-Info -->
+  <div class="card">
+    <div class="card-title">📡 Funk-Empfänger QIACHIP RX480E (fest im Code)</div>
+    <p class="hint">433 MHz, Momentary-Modus (1× Lerntaste). D0/D1 direkt an ESP32, kein Widerstand nötig.</p>
+    <div class="led-info-box" id="funk-info-box"></div>
+    <div style="background:var(--bg);border:1px solid #1e90ff22;border-radius:6px;padding:10px;margin-top:10px;font-size:.78rem;color:var(--muted);line-height:1.6">
+      <span style="color:var(--blue)">ℹ</span>
+      <strong style="color:var(--text)"> Anlernen:</strong> Lerntaste 1× → LED erlischt → Taste A drücken → LED blinkt 3× → Lerntaste 1× → Taste B drücken → fertig.
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DATUM/ZEIT ═══ -->
+<div class="seite" id="seite-zeit">
+  <div class="card">
+    <div class="card-title">🕐 Datum &amp; Uhrzeit</div>
+    <p class="hint">Kein NTP/Internet. Manuell einstellen — läuft intern weiter. Nach Stromausfall neu setzen.</p>
+    <div class="row2">
+      <div class="gruppe"><label>Datum</label><input type="text" id="z-datum" placeholder="TT.MM.JJJJ"></div>
+      <div class="gruppe"><label>Uhrzeit</label><input type="text" id="z-uhr" placeholder="HH:MM:SS"></div>
+    </div>
+    <button class="btn btn-ghost btn-block" onclick="zeitVomBrowser()">📱 Browserzeit übernehmen</button>
+    <button class="btn btn-ok btn-block" onclick="zeitSetzen()">✓ Zeit übernehmen</button>
+    <hr>
+    <div style="font-family:var(--mono);font-size:.85rem;color:var(--muted);text-align:center">
+      Aktuell: <span id="z-aktuell" style="color:var(--accent)">–</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BACKUP ═══ -->
+<div class="seite" id="seite-backup">
+  <div class="card">
+    <div class="card-title">📤 Export – Einstellungen sichern</div>
+    <p class="hint">Speichert alle Timer, GPIO-Pins, Sensor-Pegel und den Automatik-Zustand als JSON-Datei.</p>
+    <div class="io-btn-row">
+      <button class="btn btn-ok" style="justify-content:center" onclick="exportieren()">⬇ Backup laden</button>
+      <button class="btn btn-ghost" style="justify-content:center" onclick="exportAnzeigen()">👁 JSON ansehen</button>
+    </div>
+    <div id="export-preview" style="display:none;margin-top:12px">
+      <div class="gruppe"><label>Backup-JSON</label><textarea id="export-text" readonly rows="8"></textarea></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📥 Import – Einstellungen wiederherstellen</div>
+    <p class="hint">Lade eine exportierte JSON-Datei oder füge den JSON-Text ein. Alle Einstellungen werden überschrieben.</p>
+    <div class="import-drop" id="import-drop" onclick="document.getElementById('import-file').click()"
+         ondragover="event.preventDefault();this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="dropDatei(event)">
+      <input type="file" id="import-file" accept=".json,application/json" onchange="dateiGewaehlt(event)">
+      📂 Datei hierher ziehen oder tippen
+    </div>
+    <div id="import-preview" style="display:none">
+      <div class="gruppe"><label>JSON-Inhalt</label><textarea id="import-text" rows="10"></textarea></div>
+      <div id="import-status" style="margin-top:8px"></div>
+      <button class="btn btn-warn btn-block" onclick="importieren()">⚠ Einstellungen importieren &amp; überschreiben</button>
+    </div>
+    <hr>
+    <p class="hint" style="margin-bottom:8px">Oder JSON direkt einfügen:</p>
+    <div class="gruppe"><textarea id="import-manuell" rows="4" placeholder='{"version":2,...}'></textarea></div>
+    <button class="btn btn-ghost btn-block" onclick="importManuell()">↑ Als Import übernehmen</button>
+  </div>
+</div>
+
+<!-- ═══ LOG ═══ -->
+<div class="seite" id="seite-log">
+  <div class="card">
+    <div class="card-title">📋 Ereignis-Log</div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn btn-ghost" style="font-size:.75rem;padding:6px 12px" onclick="logLaden()">↻ Aktualisieren</button>
+    </div>
+    <div class="log-liste" id="log-liste">
+      <div style="color:var(--muted);font-size:.8rem;text-align:center;padding:20px">Lade...</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+const TAGE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+let status      = {};
+let aktiverTag  = new Date().getDay();
+let pumpeManAn  = false;
+let lichtAn     = false;
+let automatikAn = true;
+let gpioGeladen = false;
+let timerDaten  = null;
+let maxBetrSek  = 3600;
+let sendeAuto   = false;
+// Pegel-Zustand im UI
+let pegelRegenHigh  = true;
+let pegelWasserHigh = true;
+let pumpeAktivHigh  = true;
+
+// ── Navigation ────────────────────────────────────────────────
+function zeigSeite(id, btn) {
+  document.querySelectorAll('.seite').forEach(s => s.classList.remove('aktiv'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('aktiv'));
+  document.getElementById('seite-'+id).classList.add('aktiv');
+  btn.classList.add('aktiv');
+  if (id==='log')   logLaden();
+  if (id==='timer') bauTimerUI();
+}
+
+// ── Status laden ──────────────────────────────────────────────
+async function statusLaden() {
+  try {
+    const r = await fetch('/api/status');
+    status = await r.json();
+    renderDashboard();
+    if (!gpioGeladen) { renderGpio(); renderLedInfo(); renderPegelUI(); renderPumpePolUI(); gpioGeladen=true; }
+    else { renderGpio(); }  // immer aktualisieren da Pins im Status stehen
+    if (!timerDaten)  { timerDaten=status.timer; bauTimerUI(); }
+  } catch(e) {
+    document.getElementById('headerZeit').textContent = '⚠ Offline';
+  }
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+function renderDashboard() {
+  document.getElementById('headerZeit').textContent = status.zeit || '–';
+  document.getElementById('z-aktuell').textContent  = status.zeit || '–';
+
+  const regen  = status.regen  === 1;
+  const wasser = status.wasser === 1;
+  const laeuft = status.pumpe  === 1;
+  pumpeManAn   = status.pumpeMan  === 1;
+  automatikAn  = status.automatik === 1;
+  pegelRegenHigh  = status.pegelRegenHigh  === 1;
+  pegelWasserHigh = status.pegelWasserHigh === 1;
+  pumpeAktivHigh  = status.pumpeAktivHigh  === 1;
+
+  renderAutomatikBtn(automatikAn);
+  setLedKachel('led-automatik', automatikAn, 'blue');
+  setLedKachel('led-wasser',    wasser,      'green');
+  setLedKachel('led-regen',     regen,       'yellow');
+  setLedKachel('led-pumpe-led', laeuft,      'red');
+  lichtAn = status.licht === 1;
+  setLedKachel('led-licht', lichtAn, 'yellow');
+  setKachel('k-licht', 'v-licht', lichtAn ? 'ok' : '', lichtAn ? 'EIN' : 'AUS');
+  const bl = document.getElementById('btn-licht');
+  if (bl) {
+    bl.className = 'pumpe-btn '+(lichtAn?'ein':'aus');
+    document.getElementById('licht-icon').textContent = lichtAn ? '🔆' : '💡';
+    document.getElementById('licht-txt').textContent  = lichtAn ? 'Licht ausschalten' : 'Licht einschalten';
+  }
+
+  setKachel('k-regen',  'v-regen',  regen  ? 'warn':'ok',  regen  ? 'Regen':'Trocken');
+  setKachel('k-wasser', 'v-wasser', wasser ? 'ok':'warn',  wasser ? 'Voll ✓':'Leer ✗');
+  setKachel('k-pumpe',  'v-pumpe',  laeuft ? 'info':'',
+    laeuft ? (pumpeManAn ? 'Manuell EIN':'Timer aktiv') : 'Aus');
+
+  // Pegel-Badges in Sensor-Kacheln
+  const br = document.getElementById('badge-regen');
+  const bw = document.getElementById('badge-wasser');
+  if (br) br.innerHTML = pegelBadge(pegelRegenHigh);
+  if (bw) bw.innerHTML = pegelBadge(pegelWasserHigh);
+
+  const bp = document.getElementById('btn-pumpe');
+  bp.className = 'pumpe-btn '+(pumpeManAn?'ein':'aus');
+  document.getElementById('pumpe-icon').textContent = pumpeManAn ? '⏹':'▶';
+  document.getElementById('pumpe-txt').textContent  = pumpeManAn ? 'Pumpe ausschalten':'Pumpe manuell einschalten';
+  document.getElementById('v-betrieb').textContent  = status.betrieb || '0h 00min';
+
+  // ── Batteriespannung ────────────────────────────────────────
+  const batt = typeof status.battV === 'number' ? status.battV : 0;
+  document.getElementById('v-batt').textContent = batt.toFixed(2) + ' V';
+  let battStatus, battKlasse;
+  if (batt >= 12.7)       { battStatus = 'Voll ✓';     battKlasse = 'ok'; }
+  else if (batt >= 12.4)  { battStatus = '~75%';        battKlasse = 'ok'; }
+  else if (batt >= 12.2)  { battStatus = '~50%';        battKlasse = 'info'; }
+  else if (batt >= 11.8)  { battStatus = 'Schwach ⚠';  battKlasse = 'warn'; }
+  else if (batt > 0.5)    { battStatus = 'Kritisch! ✗'; battKlasse = 'warn'; }
+  else                    { battStatus = 'Kein Signal';  battKlasse = ''; }
+  setKachel('k-batt', 'v-batt-status', battKlasse, battStatus);
+
+  const sek = status.betriebSek || 0;
+  document.getElementById('betr-label').textContent = status.betrieb || '0h 00min';
+  document.getElementById('betr-sek').textContent   = sek + ' Sek.';
+  if (sek > maxBetrSek) maxBetrSek = sek;
+  document.getElementById('betr-fill').style.width  = Math.min(100,(sek/maxBetrSek)*100)+'%';
+
+  // Pegel-UI im GPIO-Tab synchronisieren
+  renderPegelUI();
+  renderPumpePolUI();
+}
+
+function pegelBadge(high) {
+  return high
+    ? '<span class="pegel-badge pegel-high">HIGH = aktiv</span>'
+    : '<span class="pegel-badge pegel-low">LOW = aktiv</span>';
+}
+
+function renderAutomatikBtn(an) {
+  document.getElementById('btn-automatik').className = 'automatik-btn '+(an?'ein':'aus');
+  document.getElementById('auto-toggle').className   = 'auto-toggle '+(an?'ein':'aus');
+  document.getElementById('auto-icon').textContent   = an ? '🤖':'⏸';
+  document.getElementById('auto-titel').textContent  = an ? 'Automatik EIN':'Automatik AUS';
+  document.getElementById('auto-sub').textContent    = an
+    ? 'Timer aktiv — Taster oder Button zum Deaktivieren'
+    : 'Timer deaktiviert — Taster oder Button zum Aktivieren';
+}
+
+function setKachel(kId, vId, cls, text) {
+  const k = document.getElementById(kId);
+  k.className = 'kachel'+(k.classList.contains('full')?' full':'')+(cls?' '+cls:'');
+  document.getElementById(vId).textContent = text;
+}
+function setLedKachel(id, an, farbe) {
+  document.getElementById(id).className = 'led-kachel'+(an?' led-on-'+farbe:'');
+}
+
+// ── Automatik Toggle ──────────────────────────────────────────
+async function automatikToggle() {
+  if (sendeAuto) return;
+  sendeAuto = true;
+  const neu = !automatikAn;
+  automatikAn = neu;
+  renderAutomatikBtn(neu);
+  setLedKachel('led-automatik', neu, 'blue');
+  try {
+    const fd=new FormData(); fd.append('an',neu?'1':'0');
+    const r=await fetch('/api/automatik',{method:'POST',body:fd});
+    const j=await r.json();
+    if (!j.ok) { automatikAn=!neu; renderAutomatikBtn(!neu); toast('✗ Fehler',true); }
+    else toast(neu?'✓ Automatik eingeschaltet':'✓ Automatik ausgeschaltet');
+  } catch(e) { automatikAn=!neu; renderAutomatikBtn(!neu); toast('✗ Keine Verbindung',true); }
+  sendeAuto = false;
+}
+
+// ── Sensor-Pegel ──────────────────────────────────────────────
+function renderPegelUI() {
+  const rH = (status.pegelRegenHigh  !== undefined) ? status.pegelRegenHigh  === 1 : pegelRegenHigh;
+  const wH = (status.pegelWasserHigh !== undefined) ? status.pegelWasserHigh === 1 : pegelWasserHigh;
+
+  // Regen-Buttons
+  document.getElementById('pb-regen-high').className = 'pegel-btn' + (rH ? ' aktiv-high' : '');
+  document.getElementById('pb-regen-low').className  = 'pegel-btn' + (!rH ? ' aktiv-low'  : '');
+  document.getElementById('pegel-regen-desc').textContent =
+    rH ? 'Sensor ist aktiv (regnet) wenn GPIO = HIGH (3,3V)'
+       : 'Sensor ist aktiv (regnet) wenn GPIO = LOW (0V)';
+
+  // Wasser-Buttons
+  document.getElementById('pb-wasser-high').className = 'pegel-btn' + (wH ? ' aktiv-high' : '');
+  document.getElementById('pb-wasser-low').className  = 'pegel-btn' + (!wH ? ' aktiv-low'  : '');
+  document.getElementById('pegel-wasser-desc').textContent =
+    wH ? 'Sensor ist aktiv (Wasser vorhanden) wenn GPIO = HIGH (3,3V)'
+       : 'Sensor ist aktiv (Wasser vorhanden) wenn GPIO = LOW (0V)';
+}
+
+async function pegelSetzen(sensor, pegel) {
+  const high = pegel === 'high';
+  // Optimistisch aktualisieren
+  if (sensor === 'regen')  { status.pegelRegenHigh  = high ? 1 : 0; pegelRegenHigh  = high; }
+  if (sensor === 'wasser') { status.pegelWasserHigh = high ? 1 : 0; pegelWasserHigh = high; }
+  renderPegelUI();
+
+  const fd = new FormData();
+  if (sensor === 'regen')  fd.append('regenHigh',  high ? '1' : '0');
+  if (sensor === 'wasser') fd.append('wasserHigh', high ? '1' : '0');
+  try {
+    const r = await fetch('/api/pegel', {method:'POST', body:fd});
+    const j = await r.json();
+    if (j.ok) {
+      toast('✓ Pegel gespeichert: ' + (sensor==='regen'?'Regen':'Wasser') + ' aktiv bei ' + pegel.toUpperCase());
+    } else {
+      toast('✗ Fehler beim Speichern', true);
+    }
+  } catch(e) { toast('✗ Keine Verbindung', true); }
+}
+
+// ── Pumpen-Polarität ──────────────────────────────────────────
+function renderPumpePolUI() {
+  const high = (status.pumpeAktivHigh !== undefined) ? status.pumpeAktivHigh === 1 : pumpeAktivHigh;
+  const hi = document.getElementById('pp-high');
+  const lo = document.getElementById('pp-low');
+  const ds = document.getElementById('pumpepol-desc');
+  if (!hi || !lo || !ds) return;
+  hi.className = 'pegel-btn' + ( high ? ' aktiv-high' : '');
+  lo.className = 'pegel-btn' + (!high ? ' aktiv-low'  : '');
+  ds.textContent = high
+    ? 'Pumpe läuft wenn GPIO = HIGH (3,3V) — active HIGH Relais'
+    : 'Pumpe läuft wenn GPIO = LOW (0V) — active LOW Relais';
+}
+
+async function pumpePolSetzen(aktivHigh) {
+  // Optimistisch aktualisieren
+  status.pumpeAktivHigh = aktivHigh ? 1 : 0;
+  pumpeAktivHigh = aktivHigh;
+  renderPumpePolUI();
+
+  const fd = new FormData();
+  fd.append('aktivHigh', aktivHigh ? '1' : '0');
+  try {
+    const r = await fetch('/api/pumpepol', {method:'POST', body:fd});
+    const j = await r.json();
+    if (j.ok) {
+      toast('✓ Polarität gespeichert: active ' + (aktivHigh ? 'HIGH' : 'LOW'));
+    } else {
+      toast('✗ Fehler beim Speichern', true);
+    }
+  } catch(e) { toast('✗ Keine Verbindung', true); }
+}
+
+// ── GPIO ──────────────────────────────────────────────────────
+function renderGpio() {
+  // v12: Pins sind fest, nur Info anzeigen
+  const box = document.getElementById('gpio-fest-info');
+  if (!box || !status) return;
+  const pins = [
+    { icon:'🌧️', name:'Regensensor',        gpio: status.pinRegen  },
+    { icon:'🪣',  name:'Wasserstandssensor', gpio: status.pinWasser },
+    { icon:'⚙️',  name:'Pumpe / Relais IN1', gpio: status.pinPumpe  },
+    { icon:'🔘',  name:'Automatik-Taster',   gpio: status.pinTaster },
+    { icon:'💡',  name:'Licht / Relais IN2', gpio: status.pinLicht  },
+    { icon:'🔆',  name:'Licht-Taster',       gpio: status.pinLichtTaster },
+    { icon:'📡',  name:'Funk EIN (Taste A)', gpio: status.pinFunkA  },
+    { icon:'📡',  name:'Funk AUS (Taste B)', gpio: status.pinFunkB  },
+  ];
+  box.innerHTML = pins.map(p =>
+    `<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--border)">
+       <span>${p.icon}</span>
+       <span style="flex:1;color:var(--muted);font-size:.82rem">${p.name}</span>
+       <span style="color:var(--accent)">GPIO ${p.gpio ?? '–'}</span>
+     </div>`
+  ).join('');
+}
+
+
+function renderLedInfo() {
+  const lp=status.ledPins||{};
+  const pi=status.pullInfo||{};
+  const leds=[
+    {f:'blue',  l:'Automatik aktiv', d:'Automatik EIN/AUS',      p:lp.automatik},
+    {f:'green', l:'Wasser im Fass',  d:'Wasserstandssensor aktiv',p:lp.wasser},
+    {f:'yellow',l:'Regen erkannt',    d:'Regensensor aktiv',       p:lp.regen},
+    {f:'red',   l:'Pumpe läuft',      d:'Timer oder manuell',      p:lp.pumpe},
+  ];
+  document.getElementById('led-info-box').innerHTML = leds.map(l=>`
+    <div class="led-info-row">
+      <div class="led-dot ${l.f}"></div>
+      <div class="led-info-text"><strong>${l.l}</strong><br>
+        <span style="font-size:.72rem;color:var(--muted)">${l.d}</span></div>
+      <div class="led-info-pin">GPIO ${l.p??'–'}</div>
+    </div>`).join('');
+
+  // Pull-Info Box
+  const pullBox = document.getElementById('pull-info-box');
+  if (pullBox && pi.regen) {
+    pullBox.innerHTML = `
+      <div class="led-info-row">
+        <div class="led-dot" style="background:var(--accent);box-shadow:0 0 6px var(--accent)"></div>
+        <div class="led-info-text"><strong>Regensensor</strong><br>
+          <span style="font-size:.72rem;color:var(--muted)">Interner ${pi.regen} aktiv → Pin ohne Sensor stabil</span></div>
+        <div class="led-info-pin">GPIO ${status.pinRegen??'–'}</div>
+      </div>
+      <div class="led-info-row">
+        <div class="led-dot" style="background:var(--accent);box-shadow:0 0 6px var(--accent)"></div>
+        <div class="led-info-text"><strong>Wasserstandssensor</strong><br>
+          <span style="font-size:.72rem;color:var(--muted)">Interner ${pi.wasser} aktiv → Pin ohne Sensor stabil</span></div>
+        <div class="led-info-pin">GPIO ${status.pinWasser??'–'}</div>
+      </div>`;
+  }
+
+  const fp=status.funkPins||{};
+  const fb=document.getElementById('funk-info-box');
+  if (fb) fb.innerHTML = [
+    {farbe:'#ffa502',l:'Taste A → Pumpe EIN',d:'RX480E D0 → steigende Flanke',p:fp.a},
+    {farbe:'#1e90ff',l:'Taste B → Pumpe AUS',d:'RX480E D1 → steigende Flanke',p:fp.b},
+  ].map(l=>`
+    <div class="led-info-row">
+      <div class="led-dot" style="background:${l.farbe};box-shadow:0 0 6px ${l.farbe}"></div>
+      <div class="led-info-text"><strong>${l.l}</strong><br>
+        <span style="font-size:.72rem;color:var(--muted)">${l.d}</span></div>
+      <div class="led-info-pin">GPIO ${l.p??'–'}</div>
+    </div>`).join('');
+}
+
+// ── Timer ─────────────────────────────────────────────────────
+function bauTimerUI() {
+  const tabs=document.getElementById('woche-tabs'); tabs.innerHTML='';
+  TAGE.forEach((name,d)=>{
+    const hat=timerDaten&&timerDaten[d]&&timerDaten[d].some(t=>t.a===1);
+    const btn=document.createElement('button');
+    btn.className='tag-btn'+(d===aktiverTag?' aktiv-tag':'')+(hat?' hat-timer':'');
+    btn.innerHTML=name+'<span class="dot"></span>';
+    btn.onclick=()=>{aktiverTag=d;bauTimerUI();};
+    tabs.appendChild(btn);
+  });
+  const slots=document.getElementById('timer-slots'); slots.innerHTML='';
+  if(!timerDaten)return;
+  for(let t=0;t<3;t++){
+    const tm=timerDaten[aktiverTag][t]||{a:0,h:6,m:0,d:30};
+    const div=document.createElement('div'); div.className='timer-slot';
+    div.innerHTML=`
+      <div class="timer-slot-kopf">
+        <span class="timer-nr">Timer ${t+1}</span>
+        <span style="flex:1;font-size:.85rem;color:var(--muted)">${tm.a?'<span style="color:var(--accent)">● Aktiv</span>':'○ Inaktiv'}</span>
+        <label class="toggle"><input type="checkbox" ${tm.a?'checked':''}
+          onchange="timerDaten[${aktiverTag}][${t}].a=this.checked?1:0;bauTimerUI()">
+          <span class="toggle-track"></span></label>
+      </div>
+      <div class="row3">
+        <div class="gruppe"><label>Stunde</label><input type="number" value="${tm.h}" min="0" max="23" oninput="timerDaten[${aktiverTag}][${t}].h=+this.value"></div>
+        <div class="gruppe"><label>Minute</label><input type="number" value="${tm.m}" min="0" max="59" oninput="timerDaten[${aktiverTag}][${t}].m=+this.value"></div>
+        <div class="gruppe"><label>Dauer (min)</label><input type="number" value="${tm.d}" min="1" max="360" oninput="timerDaten[${aktiverTag}][${t}].d=+this.value"></div>
+      </div>`;
+    slots.appendChild(div);
+  }
+}
+async function alleTimerSpeichern(){
+  let f=0;
+  for(let d=0;d<7;d++) for(let t=0;t<3;t++){
+    const tm=timerDaten[d][t]; const fd=new FormData();
+    fd.append('d',d);fd.append('t',t);fd.append('a',tm.a?'1':'0');
+    fd.append('h',tm.h);fd.append('m',tm.m);fd.append('dur',tm.d);
+    try{const r=await fetch('/api/timer',{method:'POST',body:fd});const j=await r.json();if(!j.ok)f++;}
+    catch(e){f++;}
+  }
+  toast(f?`✗ ${f} Fehler`:'✓ Alle Timer gespeichert',!!f);
+}
+
+// ── Pumpe ─────────────────────────────────────────────────────
+async function pumpeTasten(){
+  const fd=new FormData(); fd.append('an',pumpeManAn?'0':'1');
+  await fetch('/api/pumpe',{method:'POST',body:fd}); await statusLaden();
+}
+
+// ── Licht ────────────────────────────────────────────────────
+async function lichtTasten(){
+  const fd=new FormData(); fd.append('an', lichtAn ? '0' : '1');
+  try {
+    await fetch('/api/licht',{method:'POST',body:fd});
+    await statusLaden();
+  } catch(e) { toast('✗ Keine Verbindung',true); }
+}
+
+// ── Zeit ──────────────────────────────────────────────────────
+function pad(v){return String(v).padStart(2,'0')}
+function zeitVomBrowser(){
+  const n=new Date();
+  document.getElementById('z-datum').value=pad(n.getDate())+'.'+pad(n.getMonth()+1)+'.'+n.getFullYear();
+  document.getElementById('z-uhr').value=pad(n.getHours())+':'+pad(n.getMinutes())+':'+pad(n.getSeconds());
+}
+async function zeitSetzen(){
+  const dat=document.getElementById('z-datum').value;
+  const uhr=document.getElementById('z-uhr').value;
+  if(!dat||!uhr){toast('Datum und Uhrzeit eingeben',true);return;}
+  const[tag,mon,jahr]=dat.split('.');const[h,mi,s]=uhr.split(':');
+  const fd=new FormData();
+  fd.append('t',tag);fd.append('m',mon);fd.append('j',jahr);
+  fd.append('h',h);fd.append('mi',mi);fd.append('s',s||'0');
+  const r=await fetch('/api/zeit',{method:'POST',body:fd});
+  const j=await r.json();
+  toast(j.ok?'✓ Zeit gesetzt':'✗ Fehler',!j.ok);
+  if(j.ok)statusLaden();
+}
+
+// ── Export / Import ───────────────────────────────────────────
+async function exportieren(){
+  try{
+    const r=await fetch('/api/export'); const blob=await r.blob();
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='bewaesserung_backup.json'; a.click();
+    URL.revokeObjectURL(url); toast('✓ Backup heruntergeladen');
+  }catch(e){toast('✗ Export fehlgeschlagen',true);}
+}
+async function exportAnzeigen(){
+  try{
+    const r=await fetch('/api/export'); const txt=await r.text();
+    document.getElementById('export-text').value=JSON.stringify(JSON.parse(txt),null,2);
+    document.getElementById('export-preview').style.display='block';
+  }catch(e){toast('✗ Fehler',true);}
+}
+function dropDatei(ev){
+  ev.preventDefault();
+  document.getElementById('import-drop').classList.remove('dragover');
+  const file=ev.dataTransfer.files[0]; if(file) liesDatei(file);
+}
+function dateiGewaehlt(ev){ const file=ev.target.files[0]; if(file) liesDatei(file); }
+function liesDatei(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      document.getElementById('import-text').value=JSON.stringify(JSON.parse(e.target.result),null,2);
+      document.getElementById('import-preview').style.display='block';
+      document.getElementById('import-status').innerHTML='<span class="status-pill pill-ok">✓ JSON gültig</span>';
+    }catch(ex){
+      document.getElementById('import-text').value=e.target.result;
+      document.getElementById('import-preview').style.display='block';
+      document.getElementById('import-status').innerHTML='<span class="status-pill pill-err">✗ JSON ungültig</span>';
+    }
+  };
+  reader.readAsText(file);
+}
+async function importieren(){
+  const txt=document.getElementById('import-text').value.trim();
+  if(!txt){toast('Kein JSON',true);return;}
+  try{JSON.parse(txt);}catch(e){toast('✗ JSON ungültig',true);return;}
+  await sendeImport(txt);
+}
+function importManuell(){
+  const txt=document.getElementById('import-manuell').value.trim();
+  if(!txt){toast('Kein JSON',true);return;}
+  try{
+    document.getElementById('import-text').value=JSON.stringify(JSON.parse(txt),null,2);
+    document.getElementById('import-preview').style.display='block';
+    document.getElementById('import-status').innerHTML='<span class="status-pill pill-ok">✓ JSON gültig</span>';
+    document.getElementById('import-manuell').value='';
+    toast('JSON übernommen — prüfen und importieren');
+  }catch(e){toast('✗ JSON ungültig: '+e.message,true);}
+}
+async function sendeImport(jsonStr){
+  try{
+    const r=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:jsonStr});
+    const j=await r.json();
+    if(j.ok){ toast('✓ Import erfolgreich'); gpioGeladen=false; timerDaten=null; await statusLaden(); }
+    else toast('✗ Import fehlgeschlagen: '+(j.err||''),true);
+  }catch(e){toast('✗ Verbindungsfehler',true);}
+}
+
+// ── Log ───────────────────────────────────────────────────────
+async function logLaden(){
+  const liste=document.getElementById('log-liste');
+  try{
+    const r=await fetch('/api/log'); const arr=await r.json();
+    if(!arr.length){liste.innerHTML='<div style="color:var(--muted);font-size:.8rem;text-align:center;padding:20px">Noch keine Einträge</div>';return;}
+    liste.innerHTML='';
+    arr.forEach(e=>{
+      const div=document.createElement('div'); div.className='log-eintrag';
+      div.innerHTML=`<span class="log-ts">${e.ts?tsStr(e.ts):'–'}</span><span class="log-txt">${e.txt}</span>`;
+      liste.appendChild(div);
+    });
+  }catch(e){liste.innerHTML='<div style="color:var(--red);font-size:.8rem;text-align:center;padding:20px">⚠ Fehler</div>';}
+}
+function tsStr(ts){
+  const d=new Date(ts*1000);
+  return pad(d.getDate())+'.'+pad(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let tt;
+function toast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show'+(err?' err':'');
+  clearTimeout(tt); tt=setTimeout(()=>t.className='',3200);
+}
+
+// ── Start ─────────────────────────────────────────────────────
+statusLaden();
+setInterval(statusLaden,3000);
+</script>
+</body>
+</html>
