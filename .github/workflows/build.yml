@@ -9,6 +9,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,3 +39,72 @@ jobs:
 
       - name: Build filesystem image
         run: pio run -t buildfs
+
+      # Die folgenden Schritte veröffentlichen eine Browser-Flash-Seite
+      # (ESP Web Tools) nur bei einem echten Push auf main — PR-Builds
+      # sollen weiterhin nur kompilieren, aber nichts deployen.
+      - name: Determine partition offsets
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          # gen_esp32part.py liest die tatsächlich gebaute Partitionstabelle
+          # aus, statt Offsets zu raten (falsche Offsets könnten beim
+          # Flashen echte Hardware bricken).
+          python ~/.platformio/packages/framework-arduinoespressif32/tools/gen_esp32part.py \
+            .pio/build/esp32dev/partitions.bin > partitions.csv
+          cat partitions.csv
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          offsets = {}
+          with open("partitions.csv") as f:
+              for line in f:
+                  line = line.strip()
+                  if not line or line.startswith("#"):
+                      continue
+                  parts = [p.strip() for p in line.split(",")]
+                  offsets[parts[0]] = int(parts[3], 16)
+          print(f"OFFSET_OTADATA={offsets['otadata']}")
+          print(f"OFFSET_APP0={offsets['app0']}")
+          print(f"OFFSET_SPIFFS={offsets['spiffs']}")
+          PY
+
+      - name: Assemble flasher site
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          mkdir -p site
+          cp web-flasher/index.html site/
+          cp .pio/build/esp32dev/bootloader.bin site/
+          cp .pio/build/esp32dev/partitions.bin site/
+          cp .pio/build/esp32dev/firmware.bin site/
+          cp .pio/build/esp32dev/spiffs.bin site/
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin site/
+          VERSION="build-${{ github.run_number }}-$(echo ${{ github.sha }} | cut -c1-7)"
+          cat > site/manifest.json <<JSON
+          {
+            "name": "Bewaesserungssteuerung",
+            "version": "$VERSION",
+            "new_install_prompt_erase": true,
+            "builds": [
+              {
+                "chipFamily": "ESP32",
+                "parts": [
+                  { "path": "bootloader.bin", "offset": 4096 },
+                  { "path": "partitions.bin", "offset": 32768 },
+                  { "path": "boot_app0.bin", "offset": $OFFSET_OTADATA },
+                  { "path": "firmware.bin", "offset": $OFFSET_APP0 },
+                  { "path": "spiffs.bin", "offset": $OFFSET_SPIFFS }
+                ]
+              }
+            ]
+          }
+          JSON
+          cat site/manifest.json
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        id: deployment
+        uses: actions/deploy-pages@v4
