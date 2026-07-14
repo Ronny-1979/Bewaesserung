@@ -122,7 +122,7 @@ das Web-Dashboard erreichbar.
 src/
   main.cpp              Setup & Loop
   config.h              Pinbelegung, Defaults, Datenstrukturen
-  entprellung.h          gemeinsame Entprellungs-Hilfsfunktion (Taster)
+  entprellung.h          gemeinsame Entprellungs-Hilfsfunktion (Taster + Funk)
   storage.*              NVS-Persistenz, Log, Urlaubsmodus
   zeitverwaltung.*        manuelle Zeitverwaltung (kein NTP, kein RTC)
   sensor.*                Regen-/Wasserstandssensor (inkl. Regen-Nachlaufzeit)
