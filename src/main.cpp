@@ -56,9 +56,11 @@ void setup() {
   // 10. OLED
   oled_init();
 
-  Serial.printf("Sensoren  : Regen=GPIO%d (%s) | Wasser=GPIO%d (%s)\n",
+  Serial.printf("Sensoren  : Regen=GPIO%d (%s, %s) | Wasser=GPIO%d (%s, %s)\n",
     PIN_REGEN,  pegelRegenHigh  ? "PULLDOWN/aktiv=HIGH" : "PULLUP/aktiv=LOW",
-    PIN_WASSER, pegelWasserHigh ? "PULLDOWN/aktiv=HIGH" : "PULLUP/aktiv=LOW");
+    sensorRegenAktiv  ? "aktiviert" : "DEAKTIVIERT",
+    PIN_WASSER, pegelWasserHigh ? "PULLDOWN/aktiv=HIGH" : "PULLUP/aktiv=LOW",
+    sensorWasserAktiv ? "aktiviert" : "DEAKTIVIERT");
   Serial.printf("Pumpe     : GPIO%d | Pol=%s\n", PIN_PUMPE,
     pumpeAktivHigh ? "active HIGH" : "active LOW");
   Serial.printf("Licht     : Relais=GPIO%d | Taster=GPIO%d\n",

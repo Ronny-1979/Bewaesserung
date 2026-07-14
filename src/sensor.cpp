@@ -10,11 +10,13 @@ void sensor_init() {
 }
 
 bool sensor_regen_aktiv() {
+  if (!sensorRegenAktiv) return false;   // deaktiviert → wirkt wie "kein Regen"
   bool p = digitalRead(PIN_REGEN);
   return pegelRegenHigh ? (p == HIGH) : (p == LOW);
 }
 
 bool sensor_wasser_vorhanden() {
+  if (!sensorWasserAktiv) return true;   // deaktiviert → wirkt wie "Wasser vorhanden"
   bool p = digitalRead(PIN_WASSER);
   return pegelWasserHigh ? (p == HIGH) : (p == LOW);
 }

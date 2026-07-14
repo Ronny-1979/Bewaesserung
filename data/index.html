@@ -290,6 +290,43 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
 <!-- ═══ GPIO ═══ -->
 <div class="seite" id="seite-gpio">
 
+  <!-- Sensor Ein/Aus -->
+  <div class="card">
+    <div class="card-title">🔌 Sensoren aktivieren/deaktivieren</div>
+    <p class="hint">
+      Deaktivierte Sensoren werden von der Pumpensteuerung komplett ignoriert.
+      Regen-Sensor deaktiviert → wirkt wie „kein Regen". Wasserstandssensor
+      deaktiviert → wirkt wie „Wasser vorhanden". Praktisch z.B. wenn ein
+      Sensor defekt ist oder gerade nicht angeschlossen ist.
+    </p>
+
+    <div class="pegel-gruppe">
+      <div class="pegel-zeile">
+        <div class="pegel-icon">🌧️</div>
+        <div class="pegel-text">
+          <div class="pegel-name">Regensensor</div>
+          <div class="pegel-desc" id="sensor-regen-desc">–</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ck-sensor-regen" onchange="sensorAktivSetzen('regen', this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="pegel-zeile">
+        <div class="pegel-icon">🪣</div>
+        <div class="pegel-text">
+          <div class="pegel-name">Wasserstandssensor</div>
+          <div class="pegel-desc" id="sensor-wasser-desc">–</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ck-sensor-wasser" onchange="sensorAktivSetzen('wasser', this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
   <!-- Sensor-Pegel-Konfiguration -->
   <div class="card">
     <div class="card-title">📶 Sensor-Aktivpegel</div>
@@ -514,7 +551,7 @@ async function statusLaden() {
     const r = await fetch('/api/status');
     status = await r.json();
     renderDashboard();
-    if (!gpioGeladen) { renderGpio(); renderLedInfo(); renderPegelUI(); renderPumpePolUI(); gpioGeladen=true; }
+    if (!gpioGeladen) { renderGpio(); renderLedInfo(); renderPegelUI(); renderPumpePolUI(); renderSensorAktivUI(); gpioGeladen=true; }
     else { renderGpio(); }  // immer aktualisieren da Pins im Status stehen
     if (!timerDaten)  { timerDaten=status.timer; bauTimerUI(); }
   } catch(e) {
@@ -551,8 +588,14 @@ function renderDashboard() {
     document.getElementById('licht-txt').textContent  = lichtAn ? 'Licht ausschalten' : 'Licht einschalten';
   }
 
-  setKachel('k-regen',  'v-regen',  regen  ? 'warn':'ok',  regen  ? 'Regen':'Trocken');
-  setKachel('k-wasser', 'v-wasser', wasser ? 'ok':'warn',  wasser ? 'Voll ✓':'Leer ✗');
+  const regenAn  = status.sensorRegenAktiv  !== 0;
+  const wasserAn = status.sensorWasserAktiv !== 0;
+  setKachel('k-regen',  'v-regen',
+    !regenAn ? '' : (regen ? 'warn':'ok'),
+    !regenAn ? 'Deaktiviert' : (regen  ? 'Regen':'Trocken'));
+  setKachel('k-wasser', 'v-wasser',
+    !wasserAn ? '' : (wasser ? 'ok':'warn'),
+    !wasserAn ? 'Deaktiviert' : (wasser ? 'Voll ✓':'Leer ✗'));
   setKachel('k-pumpe',  'v-pumpe',  laeuft ? 'info':'',
     laeuft ? (pumpeManAn ? 'Manuell EIN':'Timer aktiv') : 'Aus');
 
@@ -589,6 +632,7 @@ function renderDashboard() {
   // Pegel-UI im GPIO-Tab synchronisieren
   renderPegelUI();
   renderPumpePolUI();
+  renderSensorAktivUI();
 }
 
 function pegelBadge(high) {
@@ -632,6 +676,41 @@ async function automatikToggle() {
     else toast(neu?'✓ Automatik eingeschaltet':'✓ Automatik ausgeschaltet');
   } catch(e) { automatikAn=!neu; renderAutomatikBtn(!neu); toast('✗ Keine Verbindung',true); }
   sendeAuto = false;
+}
+
+// ── Sensor Ein/Aus ──────────────────────────────────────────────
+function renderSensorAktivUI() {
+  const rEl = document.getElementById('ck-sensor-regen');
+  const wEl = document.getElementById('ck-sensor-wasser');
+  if (!rEl || !wEl || !status) return;
+  const rAn = status.sensorRegenAktiv  !== 0;
+  const wAn = status.sensorWasserAktiv !== 0;
+  rEl.checked = rAn;
+  wEl.checked = wAn;
+  document.getElementById('sensor-regen-desc').textContent =
+    rAn ? 'Aktiv — Regen wird berücksichtigt' : 'Deaktiviert — wirkt wie „kein Regen"';
+  document.getElementById('sensor-wasser-desc').textContent =
+    wAn ? 'Aktiv — Wasserstand wird berücksichtigt' : 'Deaktiviert — wirkt wie „Wasser vorhanden"';
+}
+
+async function sensorAktivSetzen(sensor, an) {
+  // Optimistisch aktualisieren
+  if (sensor === 'regen')  status.sensorRegenAktiv  = an ? 1 : 0;
+  if (sensor === 'wasser') status.sensorWasserAktiv = an ? 1 : 0;
+  renderSensorAktivUI();
+
+  const fd = new FormData();
+  if (sensor === 'regen')  fd.append('regenAktiv',  an ? '1' : '0');
+  if (sensor === 'wasser') fd.append('wasserAktiv', an ? '1' : '0');
+  try {
+    const r = await fetch('/api/sensoraktiv', {method:'POST', body:fd});
+    const j = await r.json();
+    if (j.ok) {
+      toast('✓ ' + (sensor==='regen'?'Regensensor':'Wasserstandssensor') + (an?' aktiviert':' deaktiviert'));
+    } else {
+      toast('✗ Fehler beim Speichern', true);
+    }
+  } catch(e) { toast('✗ Keine Verbindung', true); }
 }
 
 // ── Sensor-Pegel ──────────────────────────────────────────────

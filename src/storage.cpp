@@ -6,6 +6,8 @@ static Preferences prefs;
 bool pegelRegenHigh    = DEFAULT_PEGEL_REGEN_HIGH;
 bool pegelWasserHigh   = DEFAULT_PEGEL_WASSER_HIGH;
 bool pumpeAktivHigh    = DEFAULT_PUMPE_AKTIV_HIGH;
+bool sensorRegenAktiv  = DEFAULT_SENSOR_REGEN_AKTIV;
+bool sensorWasserAktiv = DEFAULT_SENSOR_WASSER_AKTIV;
 bool automatikAn       = true;
 uint32_t betriebsSekGesamt = 0;
 
@@ -20,6 +22,8 @@ void speicher_init() {
   pegelRegenHigh    = prefs.getBool("prH", DEFAULT_PEGEL_REGEN_HIGH);
   pegelWasserHigh   = prefs.getBool("pwH", DEFAULT_PEGEL_WASSER_HIGH);
   pumpeAktivHigh    = prefs.getBool("paH", DEFAULT_PUMPE_AKTIV_HIGH);
+  sensorRegenAktiv  = prefs.getBool("srA", DEFAULT_SENSOR_REGEN_AKTIV);
+  sensorWasserAktiv = prefs.getBool("swA", DEFAULT_SENSOR_WASSER_AKTIV);
   automatikAn       = prefs.getBool("aut", true);
   betriebsSekGesamt = prefs.getUInt("bSek", 0);
 
@@ -39,6 +43,11 @@ void speicher_init() {
 void speicher_pegel_speichern() {
   prefs.putBool("prH", pegelRegenHigh);
   prefs.putBool("pwH", pegelWasserHigh);
+}
+
+void speicher_sensor_aktiv_speichern() {
+  prefs.putBool("srA", sensorRegenAktiv);
+  prefs.putBool("swA", sensorWasserAktiv);
 }
 
 void speicher_pumpe_pol_speichern() {
@@ -65,6 +74,7 @@ void speicher_automatik_speichern() { prefs.putBool("aut",  automatikAn); }
 
 void speicher_alles_speichern() {
   speicher_pegel_speichern();
+  speicher_sensor_aktiv_speichern();
   speicher_pumpe_pol_speichern();
   speicher_timer_speichern();
   speicher_betrieb_speichern();

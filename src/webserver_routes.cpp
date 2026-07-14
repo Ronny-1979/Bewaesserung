@@ -59,6 +59,8 @@ static void handleStatus() {
   json += "\"pegelRegenHigh\":"  + String(pegelRegenHigh  ?1:0) + ",";
   json += "\"pegelWasserHigh\":"+ String(pegelWasserHigh ?1:0) + ",";
   json += "\"pumpeAktivHigh\":"  + String(pumpeAktivHigh  ?1:0) + ",";
+  json += "\"sensorRegenAktiv\":"  + String(sensorRegenAktiv  ?1:0) + ",";
+  json += "\"sensorWasserAktiv\":"+ String(sensorWasserAktiv ?1:0) + ",";
   json += "\"battV\":"           + String(battSpannung, 2)       + ",";
   json += "\"timer\":"           + timerJson;
   json += "}";
@@ -73,6 +75,8 @@ static void handleExport() {
   json += "\"pegelRegenHigh\":" + String(pegelRegenHigh ?1:0) + ",";
   json += "\"pegelWasserHigh\":"+ String(pegelWasserHigh?1:0) + ",";
   json += "\"pumpeAktivHigh\":" + String(pumpeAktivHigh ?1:0) + ",";
+  json += "\"sensorRegenAktiv\":"  + String(sensorRegenAktiv  ?1:0) + ",";
+  json += "\"sensorWasserAktiv\":"+ String(sensorWasserAktiv ?1:0) + ",";
   json += "\"timer\":[";
   for (int d = 0; d < 7; d++) {
     if (d) json += ",";
@@ -107,6 +111,10 @@ static void handleImport() {
     pegelWasserHigh = doc["pegelWasserHigh"].as<int>() != 0;
   if (doc["pumpeAktivHigh"].is<int>())
     pumpeAktivHigh  = doc["pumpeAktivHigh"].as<int>() != 0;
+  if (doc["sensorRegenAktiv"].is<int>())
+    sensorRegenAktiv  = doc["sensorRegenAktiv"].as<int>() != 0;
+  if (doc["sensorWasserAktiv"].is<int>())
+    sensorWasserAktiv = doc["sensorWasserAktiv"].as<int>() != 0;
   if (doc["betriebSek"].is<uint32_t>())
     betriebsSekGesamt = doc["betriebSek"].as<uint32_t>();
   if (doc["automatik"].is<int>())
@@ -141,6 +149,20 @@ static void handlePegel() {
     speicher_pegel_speichern();
     sensor_init();
     log_eintrag("Sensorpegel geaendert", zeit_als_unix());
+    sendJson("{\"ok\":1}");
+  } else {
+    sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}");
+  }
+}
+
+// ── POST /api/sensoraktiv ─────────────────────────────────────
+static void handleSensorAktiv() {
+  bool changed = false;
+  if (server.hasArg("regenAktiv"))  { sensorRegenAktiv  = server.arg("regenAktiv")  == "1"; changed=true; }
+  if (server.hasArg("wasserAktiv")) { sensorWasserAktiv = server.arg("wasserAktiv") == "1"; changed=true; }
+  if (changed) {
+    speicher_sensor_aktiv_speichern();
+    log_eintrag("Sensor-Aktivierung geaendert", zeit_als_unix());
     sendJson("{\"ok\":1}");
   } else {
     sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}");
@@ -240,6 +262,7 @@ void webserver_init() {
   server.on("/api/export",    HTTP_GET,  handleExport);
   server.on("/api/import",    HTTP_POST, handleImport);
   server.on("/api/pegel",     HTTP_POST, handlePegel);
+  server.on("/api/sensoraktiv", HTTP_POST, handleSensorAktiv);
   server.on("/api/pumpepol",  HTTP_POST, handlePumpePol);
   server.on("/api/automatik", HTTP_POST, handleAutomatik);
   server.on("/api/zeit",      HTTP_POST, handleZeit);

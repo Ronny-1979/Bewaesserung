@@ -68,6 +68,12 @@
 #define DEFAULT_PEGEL_REGEN_HIGH   true
 #define DEFAULT_PEGEL_WASSER_HIGH  true
 
+// ── Sensor-Aktivierung ──────────────────────────────────────────
+// false = Sensor deaktiviert → wird von der Pumpensteuerung ignoriert
+//         (Regen: wirkt dann wie "kein Regen", Wasser: wie "Wasser voll")
+#define DEFAULT_SENSOR_REGEN_AKTIV   true
+#define DEFAULT_SENSOR_WASSER_AKTIV  true
+
 // ── Relais-Polarität ───────────────────────────────────────────
 // false = active LOW (Optokoppler PC817) → LOW = Relais EIN
 // true  = active HIGH → HIGH = Relais EIN
