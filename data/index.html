@@ -335,6 +335,30 @@ p.hint{font-size:.8rem;color:var(--muted);margin-bottom:14px;line-height:1.5}
 <!-- ═══ GPIO ═══ -->
 <div class="seite" id="seite-gpio">
 
+  <!-- Batterieschutz -->
+  <div class="card">
+    <div class="card-title">🔋 Batterieschutz</div>
+    <p class="hint">
+      Sperrt die Pumpe komplett (auch manuell/Funk), solange die Batterie
+      kritisch niedrig ist — schützt vor Tiefentladung. Im Notfall kannst du
+      den Schutz hier kurzzeitig deaktivieren, um die Pumpe trotzdem laufen
+      zu lassen.
+    </p>
+    <div class="pegel-gruppe">
+      <div class="pegel-zeile">
+        <div class="pegel-icon">🔋</div>
+        <div class="pegel-text">
+          <div class="pegel-name">Pumpensperre bei kritischer Batterie</div>
+          <div class="pegel-desc" id="battschutz-desc">–</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="ck-battschutz" onchange="battSchutzSetzen(this.checked)">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
   <!-- Sensor Ein/Aus -->
   <div class="card">
     <div class="card-title">🔌 Sensoren aktivieren/deaktivieren</div>
@@ -603,7 +627,7 @@ async function statusLaden() {
     const r = await fetch('/api/status');
     status = await r.json();
     renderDashboard();
-    if (!gpioGeladen) { renderGpio(); renderLedInfo(); renderPegelUI(); renderPumpePolUI(); renderSensorAktivUI(); gpioGeladen=true; }
+    if (!gpioGeladen) { renderGpio(); renderLedInfo(); renderPegelUI(); renderPumpePolUI(); renderSensorAktivUI(); renderBattSchutzUI(); gpioGeladen=true; }
     else { renderGpio(); }  // immer aktualisieren da Pins im Status stehen
     if (!timerDaten)  { timerDaten=status.timer; bauTimerUI(); }
   } catch(e) {
@@ -661,7 +685,9 @@ function renderDashboard() {
   if (bw) bw.innerHTML = pegelBadge(pegelWasserHigh);
 
   const bp = document.getElementById('btn-pumpe');
-  const battGesperrt = status.battKritisch === 1;
+  const battKrit    = status.battKritisch === 1;
+  const battSchutz  = status.battSchutzAktiv !== 0;
+  const battGesperrt = battKrit && battSchutz;
   bp.className = 'pumpe-btn '+(laeuft?'ein':'aus');
   bp.disabled = battGesperrt;
   bp.style.opacity = battGesperrt ? '.5' : '1';
@@ -672,7 +698,17 @@ function renderDashboard() {
   document.getElementById('v-betrieb').textContent  = status.betrieb || '0h 00min';
 
   const battHinweis = document.getElementById('batt-sperre-hinweis');
-  if (battHinweis) battHinweis.style.display = battGesperrt ? 'block' : 'none';
+  if (battHinweis) {
+    if (battGesperrt) {
+      battHinweis.style.display = 'block';
+      battHinweis.textContent = '⚠ Pumpe gesperrt — Batterie zu schwach, um die Batterie zu schützen';
+    } else if (battKrit && !battSchutz) {
+      battHinweis.style.display = 'block';
+      battHinweis.textContent = '⚠ Batterie kritisch — Schutz deaktiviert, Pumpe läuft trotzdem (Notfall-Override)';
+    } else {
+      battHinweis.style.display = 'none';
+    }
+  }
 
   // ── Batteriespannung ────────────────────────────────────────
   const batt = typeof status.battV === 'number' ? status.battV : 0;
@@ -696,6 +732,7 @@ function renderDashboard() {
   renderPegelUI();
   renderPumpePolUI();
   renderSensorAktivUI();
+  renderBattSchutzUI();
   renderPumpeZeitUI();
   renderUrlaubUI();
   renderNaechsteBewaesserung();
@@ -742,6 +779,35 @@ async function automatikToggle() {
     else toast(neu?'✓ Automatik eingeschaltet':'✓ Automatik ausgeschaltet');
   } catch(e) { automatikAn=!neu; renderAutomatikBtn(!neu); toast('✗ Keine Verbindung',true); }
   sendeAuto = false;
+}
+
+// ── Batterieschutz ──────────────────────────────────────────────
+function renderBattSchutzUI() {
+  const el = document.getElementById('ck-battschutz');
+  if (!el || !status) return;
+  const an = status.battSchutzAktiv !== 0;
+  el.checked = an;
+  document.getElementById('battschutz-desc').textContent = an
+    ? 'Aktiv — Pumpe wird bei kritischer Batterie gesperrt'
+    : '⚠ Deaktiviert — Pumpe läuft auch bei kritischer Batterie';
+}
+
+async function battSchutzSetzen(an) {
+  status.battSchutzAktiv = an ? 1 : 0;
+  renderBattSchutzUI();
+
+  const fd = new FormData();
+  fd.append('aktiv', an ? '1' : '0');
+  try {
+    const r = await fetch('/api/battschutz', {method:'POST', body:fd});
+    const j = await r.json();
+    if (j.ok) {
+      toast(an ? '✓ Batterieschutz aktiviert' : '⚠ Batterieschutz deaktiviert — Notfall-Override');
+      await statusLaden();
+    } else {
+      toast('✗ Fehler beim Speichern', true);
+    }
+  } catch(e) { toast('✗ Keine Verbindung', true); }
 }
 
 // ── Sensor Ein/Aus ──────────────────────────────────────────────

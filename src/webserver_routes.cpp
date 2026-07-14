@@ -49,6 +49,7 @@ static void handleStatus() {
   json += "\"pumpeManZeitAktiv\":" + String(pumpeManZeitAktiv ?1:0) + ",";
   json += "\"pumpeManRestSek\":" + String(pumpe_manuell_rest_sek()) + ",";
   json += "\"battKritisch\":"    + String(battKritisch     ?1:0) + ",";
+  json += "\"battSchutzAktiv\":" + String(battSchutzAktiv  ?1:0) + ",";
   json += "\"automatik\":"       + String(automatikAn      ?1:0) + ",";
   json += "\"urlaubAktiv\":"     + String(urlaubsModusAktiv?1:0) + ",";
   json += "\"urlaubEndeDatum\":\"" + unix_als_datum_string(urlaubsEndeUnix) + "\",";
@@ -77,7 +78,7 @@ static void handleStatus() {
 
 // ── GET /api/export ───────────────────────────────────────────
 static void handleExport() {
-  String json = "{\"version\":5,";
+  String json = "{\"version\":6,";
   json += "\"automatik\":"      + String(automatikAn    ?1:0) + ",";
   json += "\"betriebSek\":"     + String(betriebsSekGesamt)   + ",";
   json += "\"pegelRegenHigh\":" + String(pegelRegenHigh ?1:0) + ",";
@@ -85,6 +86,7 @@ static void handleExport() {
   json += "\"pumpeAktivHigh\":" + String(pumpeAktivHigh ?1:0) + ",";
   json += "\"sensorRegenAktiv\":"  + String(sensorRegenAktiv  ?1:0) + ",";
   json += "\"sensorWasserAktiv\":"+ String(sensorWasserAktiv ?1:0) + ",";
+  json += "\"battSchutzAktiv\":"  + String(battSchutzAktiv   ?1:0) + ",";
   json += "\"timer\":[";
   for (int d = 0; d < 7; d++) {
     if (d) json += ",";
@@ -123,6 +125,8 @@ static void handleImport() {
     sensorRegenAktiv  = doc["sensorRegenAktiv"].as<int>() != 0;
   if (doc["sensorWasserAktiv"].is<int>())
     sensorWasserAktiv = doc["sensorWasserAktiv"].as<int>() != 0;
+  if (doc["battSchutzAktiv"].is<int>())
+    battSchutzAktiv = doc["battSchutzAktiv"].as<int>() != 0;
   if (doc["betriebSek"].is<uint32_t>())
     betriebsSekGesamt = doc["betriebSek"].as<uint32_t>();
   if (doc["automatik"].is<int>())
@@ -175,6 +179,19 @@ static void handleSensorAktiv() {
   } else {
     sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}");
   }
+}
+
+// ── POST /api/battschutz ───────────────────────────────────────
+static void handleBattSchutz() {
+  if (!server.hasArg("aktiv")) { sendJson("{\"ok\":0,\"err\":\"Parameter fehlen\"}"); return; }
+  bool neu = server.arg("aktiv") == "1";
+  if (neu != battSchutzAktiv) {
+    battSchutzAktiv = neu;
+    speicher_batt_schutz_speichern();
+    log_eintrag(battSchutzAktiv ? "Batterieschutz aktiviert"
+                                : "Batterieschutz deaktiviert (Notfall-Override)", zeit_als_unix());
+  }
+  sendJson("{\"ok\":1}");
 }
 
 // ── POST /api/pumpepol ────────────────────────────────────────
@@ -297,6 +314,7 @@ void webserver_init() {
   server.on("/api/import",    HTTP_POST, handleImport);
   server.on("/api/pegel",     HTTP_POST, handlePegel);
   server.on("/api/sensoraktiv", HTTP_POST, handleSensorAktiv);
+  server.on("/api/battschutz", HTTP_POST, handleBattSchutz);
   server.on("/api/pumpepol",  HTTP_POST, handlePumpePol);
   server.on("/api/automatik", HTTP_POST, handleAutomatik);
   server.on("/api/zeit",      HTTP_POST, handleZeit);

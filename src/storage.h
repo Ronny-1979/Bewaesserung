@@ -11,6 +11,7 @@ extern bool pumpeAktivHigh;
 
 extern bool sensorRegenAktiv;
 extern bool sensorWasserAktiv;
+extern bool battSchutzAktiv;   // true = Pumpe wird bei kritischer Batterie gesperrt (Default)
 
 extern bool     automatikAn;
 extern uint32_t betriebsSekGesamt;
@@ -29,6 +30,7 @@ extern int        logNaechster;
 void speicher_init();
 void speicher_pegel_speichern();
 void speicher_sensor_aktiv_speichern();
+void speicher_batt_schutz_speichern();
 void speicher_pumpe_pol_speichern();
 void speicher_timer_speichern();
 void speicher_betrieb_speichern();

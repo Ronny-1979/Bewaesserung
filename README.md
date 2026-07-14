@@ -32,7 +32,9 @@ Konfiguration.
 - Regensensor mit 15 Minuten Nachlaufzeit: ein kurzer Schauer unterbricht
   die Bewässerung nicht sofort wieder, sobald es kurz trocken wird
 - Batterie-Schutz: Pumpe wird bei kritisch niedriger Spannung komplett
-  gesperrt (auch manuell/Funk), um Tiefentladung der Batterie zu vermeiden
+  gesperrt (auch manuell/Funk), um Tiefentladung der Batterie zu vermeiden.
+  Der Schutz lässt sich im WebIF (GPIO-Tab) deaktivieren — z.B. für einen
+  Notfall, in dem die Pumpe trotz schwacher Batterie laufen soll
 - Zeitgesteuerte manuelle Bewässerung ("X Minuten gießen"), unabhängig vom
   Wochenplan, schaltet sich nach Ablauf automatisch wieder ab
 - Urlaubsmodus: pausiert die Automatik für eine feste Anzahl Tage und
@@ -78,6 +80,7 @@ Konfiguration.
 | `/api/import` | POST | Backup wieder einspielen |
 | `/api/pegel` | POST | Aktiv-Pegel der Sensoren setzen |
 | `/api/sensoraktiv` | POST | Regen-/Wasserstandssensor aktivieren/deaktivieren |
+| `/api/battschutz` | POST | Batterieschutz (Pumpensperre) aktivieren/deaktivieren |
 | `/api/pumpepol` | POST | Relais-Polarität der Pumpe setzen |
 | `/api/automatik` | POST | Wochenprogramm ein-/ausschalten |
 | `/api/zeit` | POST | Uhrzeit manuell setzen |

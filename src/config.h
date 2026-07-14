@@ -59,8 +59,11 @@
 // gesperrt (auch manuell/Funk), um die Batterie vor Tiefentladung zu
 // schützen. Unterhalb von BATT_KRITISCH_MIN wird von einem fehlenden oder
 // nicht angeschlossenen Sensor ausgegangen — dort wird NICHT gesperrt.
-#define BATT_KRITISCH_MIN   0.5f
-#define BATT_KRITISCH_MAX   11.8f
+// Der Schutz selbst lässt sich im WebIF deaktivieren (z.B. für einen
+// Notfall, in dem die Pumpe trotz schwacher Batterie laufen soll).
+#define BATT_KRITISCH_MIN     0.5f
+#define BATT_KRITISCH_MAX     11.8f
+#define DEFAULT_BATT_SCHUTZ_AKTIV true
 
 // ── OLED SSD1306 0,96" I2C ─────────────────────────────────────
 // VCC→3.3V  GND→GND  SDA→GPIO5  SCL→GPIO17

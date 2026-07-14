@@ -30,7 +30,13 @@ void pumpe_init() {
 //
 // battKritisch sperrt die Pumpe zusätzlich komplett (auch manuell/Funk),
 // unabhängig von allem anderen — schützt die Batterie vor Tiefentladung.
-bool pumpe_laeuft() { return !battKritisch && !pumpeManAus && (pumpeTimerAn || pumpeManAn); }
+// battSchutzAktiv ist der Notfall-Override im WebIF: ist der Schutz
+// deaktiviert, wird battKritisch weiterhin angezeigt/geloggt, blockiert
+// die Pumpe aber nicht mehr.
+bool pumpe_laeuft() {
+  bool battSperrt = battKritisch && battSchutzAktiv;
+  return !battSperrt && !pumpeManAus && (pumpeTimerAn || pumpeManAn);
+}
 
 void pumpe_manuell(bool an) {
   pumpeManAn        = an;
@@ -58,8 +64,12 @@ uint32_t pumpe_manuell_rest_sek() {
 
 void pumpe_batterie_pruefen(float battV) {
   bool neu = (battV > BATT_KRITISCH_MIN && battV < BATT_KRITISCH_MAX);
-  if (neu && !battKritisch)  log_eintrag("Pumpe gesperrt: Batterie kritisch", zeit_als_unix());
-  if (!neu && battKritisch)  log_eintrag("Batteriesperre aufgehoben", zeit_als_unix());
+  if (neu && !battKritisch) {
+    log_eintrag(battSchutzAktiv ? "Pumpe gesperrt: Batterie kritisch"
+                                : "Batterie kritisch (Schutz deaktiviert, Pumpe NICHT gesperrt)",
+                zeit_als_unix());
+  }
+  if (!neu && battKritisch) log_eintrag("Batteriesperre aufgehoben", zeit_als_unix());
   battKritisch = neu;
 }
 
