@@ -48,7 +48,10 @@ void pumpe_loop(bool regenAktiv, bool wasserVorhanden) {
   int jetztMin     = jetzt.tm_hour * 60 + jetzt.tm_min;
   bool soll        = false;
 
-  for (int t = 0; t < TIMER_PRO_TAG; t++) {
+  // 1) Heutige Timer prüfen. Bei einem Überlauf-Timer (geht über Mitternacht)
+  //    zählt hier nur der Teil VOR Mitternacht — der Teil danach wird unten
+  //    unabhängig davon behandelt, ob heute überhaupt ein Timer läuft.
+  for (int t = 0; t < TIMER_PRO_TAG && !soll; t++) {
     TagTimer& tim = woche[wt].timer[t];
     if (!tim.aktiv || !wasserVorhanden || regenAktiv) continue;
 
@@ -56,25 +59,29 @@ void pumpe_loop(bool regenAktiv, bool wasserVorhanden) {
     int ausMin = einMin + (int)tim.dauerMin;  // kann > 1439 sein (über Mitternacht)
 
     if (ausMin <= 1440) {
-      // ── Normalfall: kein Überlauf über Mitternacht ────────────
+      // Normalfall: kein Überlauf über Mitternacht
       // Beispiel: 22:00 + 60min = 23:00 → jetztMin zwischen 22:00 und 23:00
-      if (jetztMin >= einMin && jetztMin < ausMin) { soll = true; break; }
+      if (jetztMin >= einMin && jetztMin < ausMin) soll = true;
     } else {
-      // ── Überlauf über Mitternacht ─────────────────────────────
-      // Beispiel: 23:30 + 60min → ausMin = 1470 → nach Mitternacht 1470-1440 = 30min = 00:30
-      // Phase 1: Vor Mitternacht (jetztMin >= 23:30)
-      if (jetztMin >= einMin) { soll = true; break; }
-      // Phase 2: Nach Mitternacht am Folgetag (jetztMin < 00:30)
-      // Wochentag ist bereits weitergeschaltet → Vortag-Timer prüfen
-      int wtVortag    = (wt + 6) % 7;   // Vortag (z.B. Dienstag wenn jetzt Mittwoch)
-      for (int t2 = 0; t2 < TIMER_PRO_TAG; t2++) {
-        TagTimer& tim2 = woche[wtVortag].timer[t2];
-        if (!tim2.aktiv || !wasserVorhanden || regenAktiv) continue;
-        int einMin2 = tim2.einH * 60 + tim2.einM;
-        int ausMin2 = einMin2 + (int)tim2.dauerMin;
-        if (ausMin2 > 1440 && jetztMin < (ausMin2 - 1440)) { soll = true; break; }
-      }
-      if (soll) break;
+      // Überlauf über Mitternacht — Teil VOR Mitternacht (z.B. 23:30–23:59)
+      if (jetztMin >= einMin) soll = true;
+    }
+  }
+
+  // 2) Rückblick auf GESTERN: lief da ein Überlauf-Timer, der bis in die
+  //    frühen Morgenstunden von HEUTE reicht? Das muss unabhängig davon
+  //    geprüft werden, ob heute selbst ein Timer konfiguriert ist — sonst
+  //    würde ein Timer über Mitternacht immer exakt um 00:00 abgeschnitten,
+  //    sobald der Folgetag keinen eigenen Überlauf-Timer hat.
+  if (!soll) {
+    int wtVortag = (wt + 6) % 7;   // Vortag (z.B. Dienstag wenn jetzt Mittwoch)
+    for (int t2 = 0; t2 < TIMER_PRO_TAG && !soll; t2++) {
+      TagTimer& tim2 = woche[wtVortag].timer[t2];
+      if (!tim2.aktiv || !wasserVorhanden || regenAktiv) continue;
+      int einMin2 = tim2.einH * 60 + tim2.einM;
+      int ausMin2 = einMin2 + (int)tim2.dauerMin;
+      // Beispiel: 23:30 + 60min → ausMin2 = 1470 → nach Mitternacht bis 00:30
+      if (ausMin2 > 1440 && jetztMin < (ausMin2 - 1440)) soll = true;
     }
   }
 
